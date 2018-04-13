@@ -1,6 +1,6 @@
 <?php
 
-$con = new mysqli('localhost', 'root', '\'', 'RestAPI');
+$con = new mysqli('localhost', 'root', '\'', 'adoptify');
 if ($con->errno) {  http_response_code(500); die(); }
 
 require __DIR__ . '/../../include/RestAPI.php';
