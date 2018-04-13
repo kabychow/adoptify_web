@@ -28,10 +28,9 @@ $router = new Router();
  * }
  * => 400 when required parameters is blank
  * => 401 when login failed
- * => 422 when input validation failed
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -77,7 +76,7 @@ $router->route('POST', '/auth', function () use ($app, $con) {
             ]);
         }
 
-        return $app->response(422);
+        return $app->response(500);
     }
 
     return $app->response(401);
@@ -107,7 +106,7 @@ $router->route('POST', '/auth', function () use ($app, $con) {
  * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -130,7 +129,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con)
 
         if ($bearer_token === $user['access_token']) {
             return $app->response(200, [
-                'user_id' => $user['id'],
+                'user_id' => $user['user_id'],
                 'name' => $user['name'],
                 'email' => $user['email'],
                 'country_code' => $user['country_code'],
@@ -166,7 +165,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con)
  * => 422 when input validation failed
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -249,23 +248,11 @@ $router->route('POST', '/users', function () use ($app, $con) {
  * => 422 when input validation failed
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
 $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $con) {
-
-    parse_str(file_get_contents('php://input'), $request);
-
-    if (!$app->found($request, 'name', 'email', 'country_code')) {
-        return $app->response(400);
-    }
-
-    $name = trim($request['name']);
-    $email = $request['email'];
-    $country_code = strtoupper($request['country_code']);
-
-    $bearer_token = $app->getBearerToken();
 
     $query = "
       SELECT email, MD5(CONCAT(user_id, password)) AS access_token
@@ -280,7 +267,19 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $con)
 
     if ($user) {
 
+        $bearer_token = $app->getBearerToken();
+
         if ($bearer_token === $user['access_token']) {
+
+            parse_str(file_get_contents('php://input'), $request);
+
+            if (!$app->found($request, 'name', 'email', 'country_code')) {
+                return $app->response(400);
+            }
+
+            $name = trim($request['name']);
+            $email = $request['email'];
+            $country_code = strtoupper($request['country_code']);
 
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 return $app->response(422);
@@ -347,22 +346,11 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $con)
  * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
 $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app, $con) {
-
-    parse_str(file_get_contents('php://input'), $request);
-
-    if (!$app->found($request, 'current_password', 'new_password')) {
-        return $app->response(400);
-    }
-
-    $current_password = $request['current_password'];
-    $new_password = password_hash($request['new_password'], PASSWORD_DEFAULT);
-
-    $bearer_token = $app->getBearerToken();
 
     $query = "
       SELECT password, MD5(CONCAT(user_id, password)) AS access_token
@@ -377,7 +365,18 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
 
     if ($user) {
 
+        $bearer_token = $app->getBearerToken();
+
         if ($bearer_token === $user['access_token']) {
+
+            parse_str(file_get_contents('php://input'), $request);
+
+            if (!$app->found($request, 'current_password', 'new_password')) {
+                return $app->response(400);
+            }
+
+            $current_password = $request['current_password'];
+            $new_password = password_hash($request['new_password'], PASSWORD_DEFAULT);
 
             if (password_verify($current_password, $user['password'])) {
 
@@ -426,11 +425,84 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  *
  * Return
  * => 204 when update success
+ * => 400 when required parameters is blank
  * => 403 when unauthorized
  * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
+ * ...............................................................................................................................
+ */
+
+$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app, $con) {
+
+    $query = "
+      SELECT MD5(CONCAT(user_id, password)) AS access_token
+      FROM users
+      WHERE user_id = ? AND is_disabled = 0
+    ";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param('i', $user_id);
+    $stmt->execute();
+    $user = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($user) {
+
+        $bearer_token = $app->getBearerToken();
+
+        if ($bearer_token === $user['access_token']) {
+
+            parse_str(file_get_contents('php://input'), $request);
+
+            if (!$app->found($request, 'fcm_token')) {
+                return $app->response(400);
+            }
+
+            $fcm_token = $request['fcm_token'];
+
+            $query = "
+              UPDATE users
+              SET fcm_token = ?
+              WHERE user_id = ?
+            ";
+            $stmt = $con->prepare($query);
+            $stmt->bind_param('si', $fcm_token, $user_id);
+            $result = $stmt->execute();
+            $stmt->close();
+
+            if ($result) {
+                return $app->response(204);
+            }
+
+            return $app->response(500);
+        }
+
+        return $app->response(403);
+    }
+
+    return $app->response(404);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Disable user account
+ *
+ * URL => /users/{id}
+ * Method => DELETE
+ * Authorization => Bearer
+ *
+ * Required parameters => -
+ *
+ * Return
+ * => 204 when update success
+ * => 403 when unauthorized
+ * => 404 when user not found
+ * => 500 when server error
+ *
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
