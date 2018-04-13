@@ -1,7 +1,6 @@
 <?php
 
-require __DIR__ . '/../../include/adoptify/Config.php';
-$con = new mysqli(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME);
+$con = new mysqli('localhost', 'root', '\'', 'adoptify');
 if ($con->errno) {  http_response_code(500); die(); }
 
 require __DIR__ . '/../../include/adoptify/Adoptify.php';
