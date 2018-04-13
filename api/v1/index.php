@@ -1,10 +1,10 @@
 <?php
 
-$con = new mysqli('localhost', 'root', '\'', 'adoptify');
+$con = new mysqli('localhost', 'root', '\'', 'RestAPI');
 if ($con->errno) {  http_response_code(500); die(); }
 
-require __DIR__ . '/../../include/adoptify/Adoptify.php';
-$app = new Adoptify();
+require __DIR__ . '/../../include/RestAPI.php';
+$app = new RestAPI();
 
 require __DIR__ . '/../../include/Router.php';
 $router = new Router();

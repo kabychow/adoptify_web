@@ -1,6 +1,6 @@
 <?php
 
-class Adoptify
+class RestAPI
 {
 
     public function found($array, ...$vars)
