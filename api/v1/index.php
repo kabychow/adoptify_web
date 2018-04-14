@@ -464,7 +464,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
             $query = "
               UPDATE users
               SET fcm_token = ?
-              WHERE user_id = ?
+              WHERE user_id = ? AND is_disabled = 0
             ";
             $stmt = $con->prepare($query);
             $stmt->bind_param('si', $fcm_token, $user_id);
