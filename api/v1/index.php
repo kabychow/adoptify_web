@@ -70,6 +70,7 @@ $router->route('POST', '/auth', function () use ($app, $con) {
         $stmt->close();
 
         if ($result) {
+
             return $app->response(200, [
                 'user_id' => $user['user_id'],
                 'access_token' => $user['access_token']
@@ -128,6 +129,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con)
         $bearer_token = $app->getBearerToken();
 
         if ($bearer_token === $user['access_token']) {
+
             return $app->response(200, [
                 'user_id' => $user['user_id'],
                 'name' => $user['name'],
@@ -544,6 +546,111 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $c
         }
 
         return $app->response(403);
+    }
+
+    return $app->response(404);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Get dog details
+ *
+ * URL => /pets/dogs/{id}
+ * Method => GET
+ * Authorization => -
+ *
+ * Required parameters => -
+ *
+ * Return
+ * => 200: {
+ *   dog_id => integer
+ *   breed => string
+ *   gender => char(M/F)
+ *   age_month => integer
+ *   description => string
+ *   country_code => string
+ *   user => {
+ *     user_id => integer
+ *     name => string
+ *   }
+ *   contact => {
+ *     name => string
+ *     phone => string
+ *     latitude => double
+ *     longitude => double
+ *   }
+ *   views => integer
+ *   day_left => integer
+ *   updated_at => string
+ *   created_at => string
+ * }
+ * => 404 when dog not found
+ * => 500 when server error
+ *
+ * Unit Test => Pending
+ * ...............................................................................................................................
+ */
+
+$router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $con) {
+
+    $query = "
+      SELECT
+        d.dog_id, d.breed, d.gender, (((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(d.dob) * 12) + MONTH(d.dob))) AS age_month,
+        d.description, d.country_code, u.user_id, u.name AS user_name, d.contact_name, d.contact_phone, d.contact_latitude,
+        d.contact_longitude, d.views, DATEDIFF(d.expiry_date, DATE(NOW())) AS day_left, d.updated_at, d.created_at
+      FROM dogs AS d
+      INNER JOIN users AS u ON d.user_id = u.user_id
+      WHERE d.dog_id = ? AND DATEDIFF(d.expiry_date, DATE(NOW())) > 0 AND d.is_deleted = 0
+    ";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param('i', $dog_id);
+    $stmt->execute();
+    $dog = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    if ($dog) {
+
+        $query = "
+          UPDATE dogs
+          SET views = views + 1
+          WHERE dog_id = ?
+        ";
+        $stmt = $con->prepare($query);
+        $stmt->bind_param('i', $dog_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $affected_rows = $stmt->affected_rows;
+        $stmt->close();
+
+        if ($affected_rows > 0) {
+
+            return $app->response(200, [
+                'dog_id' => $dog['dog_id'],
+                'breed' => $dog['breed'],
+                'gender' => $dog['gender'],
+                'age_month' => $dog['age_month'],
+                'description' => $dog['description'],
+                'country_code' => $dog['country_code'],
+                'user' => [
+                    'user_id' => $dog['user_id'],
+                    'name' => $dog['user_name']
+                ],
+                'contact' => [
+                    'name' => $dog['contact_name'],
+                    'phone' => $dog['contact_phone'],
+                    'latitude' => $dog['contact_latitude'],
+                    'longitude' => $dog['contact_longitude']
+                ],
+                'views' => $dog['views'],
+                'day_left' => $dog['day_left'],
+                'updated_at' => $dog['updated_at'],
+                'created_at' => $dog['created_at']
+            ]);
+        }
+
+        return $app->response(500);
     }
 
     return $app->response(404);
