@@ -251,6 +251,66 @@ class Adoptify
         $dog = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
+        if ($dog) {
+
+            $dog['images'] = [];
+
+            $query = "
+              SELECT name
+              FROM dog_images
+              WHERE dog_id = ?
+            ";
+            $stmt = $this->con->prepare($query);
+            $stmt->bind_param('i', $dog['dog_id']);
+            $stmt->execute();
+            $dog_images = $stmt->get_result();
+            $stmt->close();
+
+            while ($dog_image = $dog_images->fetch_assoc()) {
+                array_push($dog['images'], $dog_image);
+            }
+
+
+            $dog['comments'] = [];
+
+            $query = "
+              SELECT dc.dog_comment_id, u.user_id, u.name AS user_name, dc.content, dc.created_at
+              FROM dog_comments AS dc
+              INNER JOIN users AS u ON dc.user_id = u.user_id
+              WHERE dc.dog_id = ? AND dc.is_deleted = 0
+            ";
+            $stmt = $this->con->prepare($query);
+            $stmt->bind_param('i', $dog['dog_id']);
+            $stmt->execute();
+            $dog_comments = $stmt->get_result();
+            $stmt->close();
+
+            while ($dog_comment = $dog_comments->fetch_assoc()) {
+
+                $dog_comment['replies'] = [];
+
+                $query = "
+                  SELECT dcr.dog_comment_reply_id, u.user_id, u.name AS user_name, dcr.content, dcr.created_at
+                  FROM dog_comment_replies AS dcr
+                  INNER JOIN users AS u ON dcr.user_id = u.user_id
+                  WHERE dcr.dog_comment_id = ? AND dcr.is_deleted = 0
+                ";
+                $stmt = $this->con->prepare($query);
+                $stmt->bind_param('i', $dog_comment['dog_comment_id']);
+                $stmt->execute();
+                $dog_comment_replies = $stmt->get_result();
+                $stmt->close();
+
+                while ($dog_comment_reply = $dog_comment_replies->fetch_assoc()) {
+
+                    array_push($dog_comment['replies'], $dog_comment_reply);
+                }
+
+                array_push($dog['comments'], $dog_comment);
+            }
+
+        }
+
         return $dog;
     }
 

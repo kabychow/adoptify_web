@@ -401,6 +401,9 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  *   breed => string
  *   gender => char(M/F)
  *   age_month => integer
+ *   images => [
+ *     name => string
+ *   ]
  *   description => string
  *   country_code => string
  *   user => {
@@ -413,6 +416,10 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  *     latitude => double
  *     longitude => double
  *   }
+ *   comments => [
+ *     dog_comment_id => integer
+ *     user_id 
+ *   ]
  *   views => integer
  *   day_left => integer
  *   updated_at => string
@@ -438,6 +445,7 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
                 'breed' => $dog['breed'],
                 'gender' => $dog['gender'],
                 'age_month' => $dog['age_month'],
+                'images' => $dog['images'],
                 'description' => $dog['description'],
                 'country_code' => $dog['country_code'],
                 'user' => [
@@ -450,6 +458,7 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
                     'latitude' => $dog['contact_latitude'],
                     'longitude' => $dog['contact_longitude']
                 ],
+                'comments' => $dog['comments'],
                 'views' => $dog['views'],
                 'day_left' => $dog['day_left'],
                 'updated_at' => $dog['updated_at'],
