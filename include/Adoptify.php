@@ -179,19 +179,33 @@ class Adoptify
     }
 
 
-    public function isEmailExists($email, $exclude_user_id = 0) {
+    public function isEmailExists($email, $exclude_user_id = null) {
 
-        $query = "
-          SELECT COUNT(*) AS count
-          FROM users
-          WHERE email = ? AND email != (
-            SELECT email
-            FROM users
-            WHERE user_id = ? AND is_disabled = 0
-          )
-        ";
-        $stmt = $this->con->prepare($query);
-        $stmt->bind_param('si', $email, $exclude_user_id);
+        if ($exclude_user_id) {
+
+            $query = "
+              SELECT COUNT(*) AS count
+              FROM users
+              WHERE email = ? AND email != (
+                SELECT email
+                FROM users
+                WHERE user_id = ? AND is_disabled = 0
+              )
+            ";
+            $stmt = $this->con->prepare($query);
+            $stmt->bind_param('si', $email, $exclude_user_id);
+
+        } else {
+
+            $query = "
+              SELECT COUNT(*) AS count
+              FROM users
+              WHERE email = ?
+            ";
+            $stmt = $this->con->prepare($query);
+            $stmt->bind_param('s', $email);
+        }
+
         $stmt->execute();
         $count = $stmt->get_result()->fetch_assoc()['count'];
         $stmt->close();
