@@ -1,10 +1,12 @@
 <?php
 
 $con = new mysqli('localhost', 'root', '\'', 'adoptify');
-if ($con->errno) {  http_response_code(500); die(); }
+
+require __DIR__ . '/../../include/Adoptify.php';
+$app = new Adoptify($con);
 
 require __DIR__ . '/../../include/RestAPI.php';
-$app = new RestAPI();
+$restapi = new RestAPI();
 
 require __DIR__ . '/../../include/Router.php';
 $router = new Router();
@@ -30,57 +32,44 @@ $router = new Router();
  * => 401 when login failed
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('POST', '/auth', function () use ($app, $con) {
+$router->route('POST', '/auth', function () use ($app, $restapi) {
 
     $request = $_POST;
 
-    if (!$app->found($request, 'email', 'password', 'fcm_token')) {
-        return $app->response(400);
+    if (!$restapi->found($request, 'email', 'password', 'fcm_token')) {
+        return $restapi->response(400);
     }
 
     $email = $request['email'];
     $password = $request['password'];
     $fcm_token = $request['fcm_token'];
 
-    $query = "
-      SELECT user_id, password, MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE email = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    if ($user_id = $app->getUserId($email)) {
 
-    if ($user && password_verify($password, $user['password'])) {
+        if ($app->auth($user_id, $password)) {
 
-        $query = "
-          UPDATE users
-          SET fcm_token = ?
-          WHERE user_id = ? AND is_disabled = 0
-        ";
-        $stmt = $con->prepare($query);
-        $stmt->bind_param('si', $fcm_token, $user['user_id']);
-        $result = $stmt->execute();
-        $stmt->close();
+            if ($access_token = $app->getAccessToken($user_id)) {
 
-        if ($result) {
+                if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
-            return $app->response(200, [
-                'user_id' => $user['user_id'],
-                'access_token' => $user['access_token']
-            ]);
+                    return $restapi->response(200, [
+                        'user_id' => $user_id,
+                        'access_token' => $access_token
+                    ]);
+                }
+
+            }
+
+            return $restapi->response(500);
         }
 
-        return $app->response(500);
     }
 
-    return $app->response(401);
+    return $restapi->response(401);
 });
 
 
@@ -104,33 +93,21 @@ $router->route('POST', '/auth', function () use ($app, $con) {
  *   created_at => string
  * }
  * => 403 when unauthorized
- * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con) {
+$router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
-    $query = "
-      SELECT user_id, name, email, country_code, created_at, MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE user_id = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    $bearer_token = $restapi->getBearerToken();
 
-    if ($user) {
+    if ($app->verifyAccessToken($user_id, $bearer_token)) {
 
-        $bearer_token = $app->getBearerToken();
+        if ($user = $app->getUserDetails($user_id)) {
 
-        if ($bearer_token === $user['access_token']) {
-
-            return $app->response(200, [
+            return $restapi->response(200, [
                 'user_id' => $user['user_id'],
                 'name' => $user['name'],
                 'email' => $user['email'],
@@ -139,10 +116,10 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con)
             ]);
         }
 
-        return $app->response(403);
+        return $restapi->response(500);
     }
 
-    return $app->response(404);
+    return $restapi->response(403);
 });
 
 
@@ -164,70 +141,44 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $con)
  * }
  * => 400 when required parameters is blank
  * => 409 when email exists
- * => 422 when input validation failed
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('POST', '/users', function () use ($app, $con) {
+$router->route('POST', '/users', function () use ($app, $restapi) {
 
     $request = $_POST;
 
-    if (!$app->found($request, 'name', 'email', 'password', 'country_code', 'fcm_token')) {
-        return $app->response(400);
+    if (!$restapi->found($request, 'name', 'email', 'password', 'country_code', 'fcm_token')) {
+        return $restapi->response(400);
     }
 
-    $name = trim($request['name']);
+    $name = $request['name'];
     $email = $request['email'];
-    $password = password_hash($request['password'], PASSWORD_DEFAULT);
-    $country_code = strtoupper($request['country_code']);
+    $password = $request['password'];
+    $country_code = $request['country_code'];
     $fcm_token = $request['fcm_token'];
 
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        return $app->response(422);
-    }
+    if (!$app->isEmailExists($email)) {
 
-    $query = "
-      SELECT COUNT(*) AS count
-      FROM users
-      WHERE email = ?
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('s', $email);
-    $stmt->execute();
-    $count = $stmt->get_result()->fetch_assoc()['count'];
-    $stmt->close();
+        if ($user_id = $app->addUser($name, $email, $password, $country_code, $fcm_token)) {
 
-    if ($count < 1) {
+            if ($access_token = $app->getAccessToken($user_id)) {
 
-        $query = "
-          INSERT INTO users (name, email, password, country_code, fcm_token)
-          VALUES (?, ?, ?, ?, ?)
-        ";
-        $stmt = $con->prepare($query);
-        $stmt->bind_param('sssss', $name, $email, $password, $country_code, $fcm_token);
-        $stmt->execute();
-        $stmt->store_result();
-        $affected_rows = $stmt->affected_rows;
-        $insert_id = $stmt->insert_id;
-        $stmt->close();
+                return $restapi->response(201, [
+                    'user_id' => $user_id,
+                    'access_token' => $access_token
+                ]);
+            }
 
-        if ($affected_rows > 0) {
-
-            $access_token = md5($insert_id . $password);
-
-            return $app->response(201, [
-                'user_id' => $insert_id,
-                'access_token' => $access_token
-            ]);
         }
 
-        return $app->response(500);
+        return $restapi->response(500);
     }
 
-    return $app->response(409);
+    return $restapi->response(409);
 });
 
 
@@ -244,86 +195,45 @@ $router->route('POST', '/users', function () use ($app, $con) {
  *
  * Return
  * => 204 when update success
+ * => 400 when required parameters is blank
  * => 403 when unauthorized
- * => 404 when when user not found
  * => 409 when email exists
- * => 422 when input validation failed
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $con) {
+$router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
-    $query = "
-      SELECT email, MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE user_id = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    parse_str(file_get_contents('php://input'), $request);
 
-    if ($user) {
-
-        $bearer_token = $app->getBearerToken();
-
-        if ($bearer_token === $user['access_token']) {
-
-            parse_str(file_get_contents('php://input'), $request);
-
-            if (!$app->found($request, 'name', 'email', 'country_code')) {
-                return $app->response(400);
-            }
-
-            $name = trim($request['name']);
-            $email = $request['email'];
-            $country_code = strtoupper($request['country_code']);
-
-            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return $app->response(422);
-            }
-
-            $query = "
-              SELECT COUNT(*) AS count
-              FROM users
-              WHERE email = ? AND email != ?
-            ";
-            $stmt = $con->prepare($query);
-            $stmt->bind_param('ss', $email, $user['email']);
-            $stmt->execute();
-            $count = $stmt->get_result()->fetch_assoc()['count'];
-            $stmt->close();
-
-            if ($count < 1) {
-
-                $query = "
-                  UPDATE users
-                  SET name = ?, email = ?, country_code = ?
-                  WHERE user_id = ? AND is_disabled = 0
-                ";
-                $stmt = $con->prepare($query);
-                $stmt->bind_param('sssi', $name, $email, $country_code, $user_id);
-                $result = $stmt->execute();
-                $stmt->close();
-
-                if ($result) {
-                    return $app->response(204);
-                }
-
-                return $app->response(500);
-            }
-
-            return $app->response(409);
-        }
-
-        return $app->response(403);
+    if (!$restapi->found($request, 'name', 'email', 'country_code')) {
+        return $restapi->response(400);
     }
 
-    return $app->response(404);
+    $name = $request['name'];
+    $email = $request['email'];
+    $country_code = $request['country_code'];
+
+    $bearer_token = $restapi->getBearerToken();
+
+    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+
+        if (!$app->isEmailExists($email, $user_id)) {
+
+            if ($app->updateUserDetails($user_id, $name, $email, $country_code)) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(409);
+    }
+
+    return $restapi->response(403);
 });
 
 
@@ -345,72 +255,47 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $con)
  * => 400 when required parameters is blank
  * => 401 when password is incorrect
  * => 403 when unauthorized
- * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app, $con) {
+$router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app, $restapi) {
 
-    $query = "
-      SELECT password, MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE user_id = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    parse_str(file_get_contents('php://input'), $request);
 
-    if ($user) {
+    if (!$restapi->found($request, 'current_password', 'new_password')) {
+        return $restapi->response(400);
+    }
 
-        $bearer_token = $app->getBearerToken();
+    $current_password = $request['current_password'];
+    $new_password = $request['new_password'];
 
-        if ($bearer_token === $user['access_token']) {
+    $bearer_token = $restapi->getBearerToken();
 
-            parse_str(file_get_contents('php://input'), $request);
+    if ($app->verifyAccessToken($user_id, $bearer_token)) {
 
-            if (!$app->found($request, 'current_password', 'new_password')) {
-                return $app->response(400);
-            }
+        if ($app->auth($user_id, $current_password)) {
 
-            $current_password = $request['current_password'];
-            $new_password = password_hash($request['new_password'], PASSWORD_DEFAULT);
+            if ($app->updateUserPassword($user_id, $new_password)) {
 
-            if (password_verify($current_password, $user['password'])) {
+                if($access_token = $app->getAccessToken($user_id)) {
 
-                $query = "
-                  UPDATE users
-                  SET password = ?
-                  WHERE user_id = ? AND is_disabled = 0
-                ";
-                $stmt = $con->prepare($query);
-                $stmt->bind_param('si', $new_password, $user_id);
-                $result = $stmt->execute();
-                $stmt->close();
-
-                if ($result) {
-
-                    $access_token = md5($user_id . $new_password);
-
-                    return $app->response(200, [
+                    return $restapi->response(200, [
                         'access_token' => $access_token
                     ]);
                 }
 
-                return $app->response(500);
             }
 
-            return $app->response(401);
+            return $restapi->response(500);
         }
 
-        return $app->response(403);
+        return $restapi->response(401);
     }
 
-    return $app->response(404);
+    return $restapi->response(403);
 });
 
 
@@ -429,61 +314,35 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  * => 204 when update success
  * => 400 when required parameters is blank
  * => 403 when unauthorized
- * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app, $con) {
+$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app, $restapi) {
 
-    $query = "
-      SELECT MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE user_id = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    parse_str(file_get_contents('php://input'), $request);
 
-    if ($user) {
-
-        $bearer_token = $app->getBearerToken();
-
-        if ($bearer_token === $user['access_token']) {
-
-            parse_str(file_get_contents('php://input'), $request);
-
-            if (!$app->found($request, 'fcm_token')) {
-                return $app->response(400);
-            }
-
-            $fcm_token = $request['fcm_token'];
-
-            $query = "
-              UPDATE users
-              SET fcm_token = ?
-              WHERE user_id = ? AND is_disabled = 0
-            ";
-            $stmt = $con->prepare($query);
-            $stmt->bind_param('si', $fcm_token, $user_id);
-            $result = $stmt->execute();
-            $stmt->close();
-
-            if ($result) {
-                return $app->response(204);
-            }
-
-            return $app->response(500);
-        }
-
-        return $app->response(403);
+    if (!$restapi->found($request, 'fcm_token')) {
+        return $restapi->response(400);
     }
 
-    return $app->response(404);
+    $fcm_token = $request['fcm_token'];
+
+    $bearer_token = $restapi->getBearerToken();
+
+    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+
+        if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+
+            return $restapi->response(204);
+        }
+
+        return $restapi->response(500);
+    }
+
+    return $restapi->response(403);
 });
 
 
@@ -501,54 +360,27 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  * Return
  * => 204 when update success
  * => 403 when unauthorized
- * => 404 when user not found
  * => 500 when server error
  *
- * Unit Test => Success
+ * Unit Test => Pending
  * ...............................................................................................................................
  */
 
-$router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $con) {
+$router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
-    $bearer_token = $app->getBearerToken();
+    $bearer_token = $restapi->getBearerToken();
 
-    $query = "
-      SELECT MD5(CONCAT(user_id, password)) AS access_token
-      FROM users
-      WHERE user_id = ? AND is_disabled = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $user_id);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    if ($app->verifyAccessToken($user_id, $bearer_token)) {
 
-    if ($user) {
+        if ($app->disableUser($user_id)) {
 
-        if ($bearer_token === $user['access_token']) {
-
-            $query = "
-              DELETE FROM users
-              WHERE user_id = ? AND is_disabled = 0
-            ";
-            $stmt = $con->prepare($query);
-            $stmt->bind_param('i', $user_id);
-            $stmt->execute();
-            $stmt->store_result();
-            $affected_rows = $stmt->affected_rows;
-            $stmt->close();
-
-            if ($affected_rows > 0) {
-                return $app->response(204);
-            }
-
-            return $app->response(500);
+            return $restapi->response(204);
         }
 
-        return $app->response(403);
+        return $restapi->response(500);
     }
 
-    return $app->response(404);
+    return $restapi->response(403);
 });
 
 
@@ -593,40 +425,15 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $c
  * ...............................................................................................................................
  */
 
-$router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $con) {
+$router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
 
-    $query = "
-      SELECT
-        d.dog_id, d.breed, d.gender, (((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(d.dob) * 12) + MONTH(d.dob))) AS age_month,
-        d.description, d.country_code, u.user_id, u.name AS user_name, d.contact_name, d.contact_phone, d.contact_latitude,
-        d.contact_longitude, d.views, DATEDIFF(d.expiry_date, DATE(NOW())) AS day_left, d.updated_at, d.created_at
-      FROM dogs AS d
-      INNER JOIN users AS u ON d.user_id = u.user_id
-      WHERE d.dog_id = ? AND DATEDIFF(d.expiry_date, DATE(NOW())) > 0 AND d.is_deleted = 0
-    ";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param('i', $dog_id);
-    $stmt->execute();
-    $dog = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    $dog = $app->getDog($dog_id);
 
     if ($dog) {
 
-        $query = "
-          UPDATE dogs
-          SET views = views + 1
-          WHERE dog_id = ?
-        ";
-        $stmt = $con->prepare($query);
-        $stmt->bind_param('i', $dog_id);
-        $stmt->execute();
-        $stmt->store_result();
-        $affected_rows = $stmt->affected_rows;
-        $stmt->close();
+        if ($app->updateDogIncrementViews($dog_id)) {
 
-        if ($affected_rows > 0) {
-
-            return $app->response(200, [
+            return $restapi->response(200, [
                 'dog_id' => $dog['dog_id'],
                 'breed' => $dog['breed'],
                 'gender' => $dog['gender'],
@@ -650,10 +457,10 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $co
             ]);
         }
 
-        return $app->response(500);
+        return $restapi->response(500);
     }
 
-    return $app->response(404);
+    return $restapi->response(404);
 });
 
 
