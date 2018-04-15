@@ -52,9 +52,9 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
 
         if ($app->auth($user_id, $password)) {
 
-            if ($access_token = $app->getAccessToken($user_id)) {
+            if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
-                if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+                if ($access_token = $app->getAccessToken($user_id)) {
 
                     return $restapi->response(200, [
                         'user_id' => $user_id,
@@ -80,7 +80,7 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
  *
  * URL => /users/{id}
  * Method => GET
- * Authorization => Bearer
+ * Authorization => Basic
  *
  * Required parameters => -
  *
@@ -101,9 +101,9 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
 
 $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
-    $bearer_token = $restapi->getBearerToken();
+    $basic_token = $restapi->getBasicToken();
 
-    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+    if ($app->verifyAccessToken($user_id, $basic_token)) {
 
         if ($user = $app->getUserDetails($user_id)) {
 
@@ -189,7 +189,7 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
  *
  * URL => /users/{id}
  * Method => PUT
- * Authorization => Bearer
+ * Authorization => Basic
  *
  * Required parameters => name, email, country_code
  *
@@ -216,9 +216,9 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
     $email = $request['email'];
     $country_code = $request['country_code'];
 
-    $bearer_token = $restapi->getBearerToken();
+    $basic_token = $restapi->getBasicToken();
 
-    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+    if ($app->verifyAccessToken($user_id, $basic_token)) {
 
         if (!$app->isEmailExists($email, $user_id)) {
 
@@ -244,7 +244,7 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  *
  * URL => /users/{id}/password
  * Method => PUT
- * Authorization => Bearer
+ * Authorization => Basic
  *
  * Required parameters => current_password, new_password
  *
@@ -272,9 +272,9 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
     $current_password = $request['current_password'];
     $new_password = $request['new_password'];
 
-    $bearer_token = $restapi->getBearerToken();
+    $basic_token = $restapi->getBasicToken();
 
-    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+    if ($app->verifyAccessToken($user_id, $basic_token)) {
 
         if ($app->auth($user_id, $current_password)) {
 
@@ -306,7 +306,7 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  *
  * URL => /users/{id}/fcm_token
  * Method => PUT
- * Authorization => Bearer
+ * Authorization => Basic
  *
  * Required parameters => fcm_token
  *
@@ -330,9 +330,9 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 
     $fcm_token = $request['fcm_token'];
 
-    $bearer_token = $restapi->getBearerToken();
+    $basic_token = $restapi->getBasicToken();
 
-    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+    if ($app->verifyAccessToken($user_id, $basic_token)) {
 
         if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
@@ -353,7 +353,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  *
  * URL => /users/{id}
  * Method => DELETE
- * Authorization => Bearer
+ * Authorization => Basic
  *
  * Required parameters => -
  *
@@ -368,9 +368,9 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 
 $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
-    $bearer_token = $restapi->getBearerToken();
+    $basic_token = $restapi->getBasicToken();
 
-    if ($app->verifyAccessToken($user_id, $bearer_token)) {
+    if ($app->verifyAccessToken($user_id, $basic_token)) {
 
         if ($app->disableUser($user_id)) {
 
@@ -418,7 +418,7 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  *   }
  *   comments => [
  *     dog_comment_id => integer
- *     user_id 
+ *     user_id
  *   ]
  *   views => integer
  *   day_left => integer

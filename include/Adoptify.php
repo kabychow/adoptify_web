@@ -203,7 +203,7 @@ class Adoptify
     public function getAccessToken($user_id) {
 
         $query = "
-          SELECT MD5(CONCAT(user_id, password)) AS access_token
+          SELECT MD5(CONCAT(user_id, password, fcm_token)) AS access_token
           FROM users
           WHERE user_id = ? AND is_disabled = 0
         ";
@@ -222,7 +222,7 @@ class Adoptify
         $query = "
           SELECT COUNT(*) AS count
           FROM users
-          WHERE user_id = ? AND MD5(CONCAT(user_id, password)) = ? AND is_disabled = 0
+          WHERE user_id = ? AND MD5(CONCAT(user_id, password, fcm_token)) = ? AND is_disabled = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('is', $user_id, $access_token);

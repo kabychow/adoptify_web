@@ -26,10 +26,10 @@ class RestAPI
     }
 
 
-    public function getBearerToken()
+    public function getBasicToken()
     {
         $authorization = $_SERVER['Authorization'] ?? $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        return (preg_match('/Bearer\s(\S+)/', $authorization, $matches)) ? $matches[1] : null;
+        return (preg_match('/Basic\s(\S+)/', $authorization, $matches)) ? $matches[1] : null;
     }
 
 }
