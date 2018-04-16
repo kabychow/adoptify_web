@@ -311,12 +311,12 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  * Required parameters => fcm_token
  *
  * Return
- * => 204 when update success
+ * => 200 when update success
  * => 400 when required parameters is blank
  * => 403 when unauthorized
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Successs
  * ...............................................................................................................................
  */
 
@@ -336,7 +336,14 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 
         if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
-            return $restapi->response(204);
+            if ($access_token = $app->getAccessToken($user_id)) {
+
+                return $restapi->response(200, [
+                    'access_token' => $access_token
+                ]);
+            }
+
+            return $restapi->response(500);
         }
 
         return $restapi->response(500);
@@ -362,7 +369,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  * => 403 when unauthorized
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
