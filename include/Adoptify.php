@@ -364,6 +364,23 @@ class Adoptify
     }
 
 
+    public function reportDog($user_id, $dog_id) {
+
+        $query = "
+          INSERT INTO dog_reports (dog_id, user_id)
+          VALUES (?, ?)
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('ii', $user_id, $dog_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $affected_rows = $stmt->affected_rows;
+        $stmt->close();
+
+        return $affected_rows > 0;
+    }
+
+
     public function reArrayImages($images) {
         $new = [];
         foreach ($images as $key => $all) {

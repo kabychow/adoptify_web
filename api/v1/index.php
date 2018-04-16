@@ -505,4 +505,55 @@ $router->route('DELETE', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, 
 
 
 
+/*................................................................................................................................
+ *
+ * Report dog
+ *
+ * URL => /pets/dogs/{id}/report
+ * Method => POST
+ * Authorization => Basic
+ *
+ * Required parameters => user_id
+ *
+ * Return
+ * => 204 when report success
+ * => 400 when required parameters is blank
+ * => 403 when unauthorized
+ * => 404 when dog not found
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('POST', '/pets/dogs/[i:dog_id]/report', function ($dog_id) use ($app, $restapi) {
+
+    $request = $_POST;
+
+    if (!$restapi->found($request, 'user_id')) {
+        return $restapi->response(400);
+    }
+
+    $user_id = $restapi['user_id'];
+
+    if ($dog = $app->getDog($dog_id)) {
+
+        $basic_token = $restapi->getBasicToken();
+
+        if ($app->verifyAccessToken($user_id, $basic_token)) {
+
+            if ($app->reportDog($user_id, $dog_id)) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(403);
+    }
+
+    return $restapi->response(404);
+});
+
+
+
 $router->run();
