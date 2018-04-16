@@ -32,7 +32,7 @@ $router = new Router();
  * => 401 when login failed
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -95,7 +95,7 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
  * => 403 when unauthorized
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -143,7 +143,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * => 409 when email exists
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -200,7 +200,7 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
  * => 409 when email exists
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -257,7 +257,7 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * => 403 when unauthorized
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 

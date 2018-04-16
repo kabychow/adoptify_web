@@ -11,8 +11,7 @@ class Adoptify
     private $con;
 
 
-    public function __construct(mysqli $con)
-    {
+    public function __construct(mysqli $con) {
         if (!$con->errno) {
             $this->con = $con;
         } else {
@@ -118,7 +117,7 @@ class Adoptify
           WHERE user_id = ? AND is_disabled = 0
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('ai', $new_password, $user_id);
+        $stmt->bind_param('si', $new_password, $user_id);
         $stmt->execute();
         $stmt->store_result();
         $affected_rows = $stmt->affected_rows;
