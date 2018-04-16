@@ -435,15 +435,13 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  * => 404 when dog not found
  * => 500 when server error
  *
- * Unit Test => Pending
+ * Unit Test => Success
  * ...............................................................................................................................
  */
 
 $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
 
-    $dog = $app->getDog($dog_id);
-
-    if ($dog) {
+    if ($dog = $app->getDog($dog_id)) {
 
         if ($app->updateDogIncrementViews($dog_id)) {
 
