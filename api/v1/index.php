@@ -532,7 +532,7 @@ $router->route('POST', '/pets/dogs/[i:dog_id]/report', function ($dog_id) use ($
         return $restapi->response(400);
     }
 
-    $user_id = $restapi['user_id'];
+    $user_id = $request['user_id'];
 
     if ($dog = $app->getDog($dog_id)) {
 
