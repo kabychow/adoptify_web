@@ -271,7 +271,7 @@ class Adoptify
             $query = "
               SELECT name
               FROM dog_images
-              WHERE dog_id = ?
+              WHERE dog_id = ? is_deleted = 0
             ";
             $stmt = $this->con->prepare($query);
             $stmt->bind_param('i', $dog['dog_id']);
@@ -333,7 +333,7 @@ class Adoptify
         $query = "
           UPDATE dogs
           SET views = views + 1
-          WHERE dog_id = ?
+          WHERE dog_id = ? AND is_deleted = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $dog_id);
@@ -351,7 +351,7 @@ class Adoptify
         $query = "
           UPDATE dogs
           SET is_deleted = 1
-          WHERE dog_id = ?
+          WHERE dog_id = ? AND is_deleted = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $dog_id);
