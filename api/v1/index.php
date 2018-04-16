@@ -31,8 +31,6 @@ $router = new Router();
  * => 400 when required parameters is blank
  * => 401 when login failed
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -94,8 +92,6 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
  * }
  * => 403 when unauthorized
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -142,8 +138,6 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * => 400 when required parameters is blank
  * => 409 when email exists
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -199,8 +193,6 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
  * => 403 when unauthorized
  * => 409 when email exists
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -256,8 +248,6 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * => 401 when password is incorrect
  * => 403 when unauthorized
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -315,8 +305,6 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  * => 400 when required parameters is blank
  * => 403 when unauthorized
  * => 500 when server error
- *
- * Unit Test => Successs
  * ...............................................................................................................................
  */
 
@@ -368,8 +356,6 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  * => 204 when update success
  * => 403 when unauthorized
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -434,8 +420,6 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  * }
  * => 404 when dog not found
  * => 500 when server error
- *
- * Unit Test => Success
  * ...............................................................................................................................
  */
 
@@ -472,6 +456,48 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
         }
 
         return $restapi->response(500);
+    }
+
+    return $restapi->response(404);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Delete dog
+ *
+ * URL => /pets/dogs/{id}
+ * Method => DELETE
+ * Authorization => Basic
+ *
+ * Required parameters => -
+ *
+ * Return
+ * => 204 when update success
+ * => 403 when unauthorized
+ * => 404 when dog not found
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('DELETE', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
+
+    if ($dog = $app->getDog($dog_id)) {
+
+        $basic_token = $restapi->getBasicToken();
+
+        if ($app->verifyAccessToken($dog['user_id'], $basic_token)) {
+
+            if ($app->deleteDog($dog['dog_id'])) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(403);
     }
 
     return $restapi->response(404);

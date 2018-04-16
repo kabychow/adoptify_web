@@ -346,4 +346,33 @@ class Adoptify
     }
 
 
+    public function deleteDog($dog_id) {
+
+        $query = "
+          UPDATE dogs
+          SET is_deleted = 1
+          WHERE dog_id = ?
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('i', $dog_id);
+        $stmt->execute();
+        $stmt->store_result();
+        $affected_rows = $stmt->affected_rows;
+        $stmt->close();
+
+        return $affected_rows > 0;
+    }
+
+
+    public function reArrayImages($images) {
+        $new = [];
+        foreach ($images as $key => $all) {
+            foreach ($all as $i => $val) {
+                $new[$i][$key] = $val;
+            }
+        }
+        return $new;
+    }
+
+
 }
