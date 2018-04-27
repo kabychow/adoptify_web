@@ -37,16 +37,6 @@ CREATE TABLE `dog` (
     `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
 );
 
-CREATE TABLE `dog_comment` (
-    `id` INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    `user_id` INT UNSIGNED NOT NULL,
-    `dog_id` INT UNSIGNED NOT NULL,
-    `reply_to` INT UNSIGNED,
-    `content` VARCHAR(512) NOT NULL,
-    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
-);
-
 CREATE TABLE `dog_image` (
     `dog_id` INT UNSIGNED NOT NULL,
     `path` VARCHAR(512) UNIQUE NOT NULL
@@ -80,16 +70,6 @@ CREATE TABLE `cat` (
     `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
 );
 
-CREATE TABLE `cat_comment` (
-    `id` INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    `user_id` INT UNSIGNED NOT NULL,
-    `cat_id` INT UNSIGNED NOT NULL,
-    `reply_to` INT UNSIGNED,
-    `content` VARCHAR(512) NOT NULL,
-    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
-);
-
 CREATE TABLE `cat_image` (
     `cat_id` INT UNSIGNED NOT NULL,
     `path` VARCHAR(512) UNIQUE NOT NULL
@@ -108,10 +88,6 @@ ALTER TABLE `user` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`)
 ALTER TABLE `dog` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 ALTER TABLE `dog` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`);
 
-ALTER TABLE `dog_comment` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
-ALTER TABLE `dog_comment` ADD FOREIGN KEY (`dog_id`) REFERENCES `dog`(`id`);
-ALTER TABLE `dog_comment` ADD FOREIGN KEY (`reply_to`) REFERENCES `dog_comment`(`id`);
-
 ALTER TABLE `dog_image` ADD FOREIGN KEY (`dog_id`) REFERENCES `dog`(`id`);
 
 ALTER TABLE `dog_report` ADD FOREIGN KEY (`dog_id`) REFERENCES `dog`(`id`);
@@ -119,10 +95,6 @@ ALTER TABLE `dog_report` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 
 ALTER TABLE `cat` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 ALTER TABLE `cat` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`);
-
-ALTER TABLE `cat_comment` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
-ALTER TABLE `cat_comment` ADD FOREIGN KEY (`cat_id`) REFERENCES `cat`(`id`);
-ALTER TABLE `cat_comment` ADD FOREIGN KEY (`reply_to`) REFERENCES `cat_comment`(`id`);
 
 ALTER TABLE `cat_image` ADD FOREIGN KEY (`cat_id`) REFERENCES `cat`(`id`);
 

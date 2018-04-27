@@ -406,7 +406,6 @@ $router->route('DELETE', '/user/[i:user_id]', function ($user_id) use ($app, $re
  *   ]
  *   views => integer
  *   day_left => integer
- *   updated_at => string
  *   created_at => string
  * }
  * => 404 when dog not found
