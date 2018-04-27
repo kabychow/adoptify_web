@@ -114,7 +114,7 @@ class Router
             echo call_user_func_array($match['target'], $match['params']);
             exit();
         } else {
-            http_response_code(404);
+            http_response_code(500);
             die();
         }
     }

@@ -1,6 +1,6 @@
 <?php
 
-$con = new mysqli('localhost', 'root', '\'', 'adoptify');
+$con = new mysqli('127.0.0.1', 'root', '\'', 'adoptify');
 
 require __DIR__ . '/../../include/Adoptify.php';
 $app = new Adoptify($con);
@@ -46,25 +46,21 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
     $password = $request['password'];
     $fcm_token = $request['fcm_token'];
 
-    if ($user_id = $app->getUserId($email)) {
+    if ($app->login($email, $password)) {
 
-        if ($app->auth($user_id, $password)) {
+        $user_id = $app->getUserId($email);
 
-            if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+        if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
-                if ($access_token = $app->getAccessToken($user_id)) {
+            $access_token = $app->getAccessToken($user_id);
 
-                    return $restapi->response(200, [
-                        'user_id' => $user_id,
-                        'access_token' => $access_token
-                    ]);
-                }
-
-            }
-
-            return $restapi->response(500);
+            return $restapi->response(200, [
+                'user_id' => $user_id,
+                'access_token' => $access_token
+            ]);
         }
 
+        return $restapi->response(500);
     }
 
     return $restapi->response(401);
@@ -76,7 +72,7 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
  *
  * Get user details
  *
- * URL => /users/{id}
+ * URL => /user/{id}
  * Method => GET
  * Authorization => Basic
  *
@@ -95,24 +91,21 @@ $router->route('POST', '/auth', function () use ($app, $restapi) {
  * ...............................................................................................................................
  */
 
-$router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
+$router->route('GET', '/user/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
     $basic_token = $restapi->getBasicToken();
 
     if ($app->verifyAccessToken($user_id, $basic_token)) {
 
-        if ($user = $app->getUserDetails($user_id)) {
+        $user = $app->getUserDetails($user_id);
 
-            return $restapi->response(200, [
-                'user_id' => $user['user_id'],
-                'name' => $user['name'],
-                'email' => $user['email'],
-                'country_code' => $user['country_code'],
-                'created_at' => $user['created_at']
-            ]);
-        }
-
-        return $restapi->response(500);
+        return $restapi->response(200, [
+            'user_id' => $user['id'],
+            'name' => $user['name'],
+            'email' => $user['email'],
+            'country_code' => $user['country_code'],
+            'created_at' => $user['created_at']
+        ]);
     }
 
     return $restapi->response(403);
@@ -124,7 +117,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  *
  * User register
  *
- * URL => /users
+ * URL => /user
  * Method => POST
  * Authorization => -
  *
@@ -141,7 +134,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * ...............................................................................................................................
  */
 
-$router->route('POST', '/users', function () use ($app, $restapi) {
+$router->route('POST', '/user', function () use ($app, $restapi) {
 
     $request = $_POST;
 
@@ -159,14 +152,12 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
 
         if ($user_id = $app->addUser($name, $email, $password, $country_code, $fcm_token)) {
 
-            if ($access_token = $app->getAccessToken($user_id)) {
+            $access_token = $app->getAccessToken($user_id);
 
-                return $restapi->response(201, [
-                    'user_id' => $user_id,
-                    'access_token' => $access_token
-                ]);
-            }
-
+            return $restapi->response(201, [
+                'user_id' => $user_id,
+                'access_token' => $access_token
+            ]);
         }
 
         return $restapi->response(500);
@@ -181,7 +172,7 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
  *
  * Update user profile
  *
- * URL => /users/{id}
+ * URL => /user/{id}
  * Method => PUT
  * Authorization => Basic
  *
@@ -196,7 +187,7 @@ $router->route('POST', '/users', function () use ($app, $restapi) {
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
+$router->route('PUT', '/user/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
     parse_str(file_get_contents('php://input'), $request);
 
@@ -234,7 +225,7 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  *
  * Update user password
  *
- * URL => /users/{id}/password
+ * URL => /user/{id}/password
  * Method => PUT
  * Authorization => Basic
  *
@@ -251,7 +242,7 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $rest
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app, $restapi) {
+$router->route('PUT', '/user/[i:user_id]/password', function ($user_id) use ($app, $restapi) {
 
     parse_str(file_get_contents('php://input'), $request);
 
@@ -266,17 +257,15 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
 
     if ($app->verifyAccessToken($user_id, $basic_token)) {
 
-        if ($app->auth($user_id, $current_password)) {
+        if ($app->verifyPassword($user_id, $current_password)) {
 
             if ($app->updateUserPassword($user_id, $new_password)) {
 
-                if($access_token = $app->getAccessToken($user_id)) {
+                $access_token = $app->getAccessToken($user_id);
 
-                    return $restapi->response(200, [
-                        'access_token' => $access_token
-                    ]);
-                }
-
+                return $restapi->response(200, [
+                    'access_token' => $access_token
+                ]);
             }
 
             return $restapi->response(500);
@@ -294,7 +283,7 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  *
  * Update user fcm token
  *
- * URL => /users/{id}/fcm_token
+ * URL => /user/{id}/fcm_token
  * Method => PUT
  * Authorization => Basic
  *
@@ -308,7 +297,7 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
  * ...............................................................................................................................
  */
 
-$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app, $restapi) {
+$router->route('PUT', '/user/[i:user_id]/fcm_token', function ($user_id) use ($app, $restapi) {
 
     parse_str(file_get_contents('php://input'), $request);
 
@@ -324,14 +313,11 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 
         if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
-            if ($access_token = $app->getAccessToken($user_id)) {
+            $access_token = $app->getAccessToken($user_id);
 
-                return $restapi->response(200, [
-                    'access_token' => $access_token
-                ]);
-            }
-
-            return $restapi->response(500);
+            return $restapi->response(200, [
+                'access_token' => $access_token
+            ]);
         }
 
         return $restapi->response(500);
@@ -346,7 +332,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  *
  * Disable user account
  *
- * URL => /users/{id}
+ * URL => /user/{id}
  * Method => DELETE
  * Authorization => Basic
  *
@@ -359,7 +345,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
  * ...............................................................................................................................
  */
 
-$router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $restapi) {
+$router->route('DELETE', '/user/[i:user_id]', function ($user_id) use ($app, $restapi) {
 
     $basic_token = $restapi->getBasicToken();
 
@@ -382,7 +368,7 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  *
  * Get dog details
  *
- * URL => /pets/dogs/{id}
+ * URL => /pet/dog/{id}
  * Method => GET
  * Authorization => -
  *
@@ -391,27 +377,32 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  * Return
  * => 200: {
  *   dog_id => integer
- *   breed => string
- *   gender => char(M/F)
- *   age_month => integer
- *   images => [
- *     name => string
- *   ]
- *   description => string
- *   country_code => string
  *   user => {
  *     user_id => integer
  *     name => string
  *   }
+ *   breed => string
+ *   gender => char(M/F)
+ *   age_month => integer
+ *   images => string[]
+ *   description => string
+ *   country_code => string
  *   contact => {
  *     name => string
  *     phone => string
  *     latitude => double
  *     longitude => double
+ *     area_level_1 => string
+ *     area_level_2 => string
  *   }
  *   comments => [
  *     dog_comment_id => integer
- *     user_id
+ *     user => {
+ *       user_id => integer
+ *       name => string
+ *     }
+ *     content => string
+ *     created_at => string
  *   ]
  *   views => integer
  *   day_left => integer
@@ -423,7 +414,7 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $r
  * ...............................................................................................................................
  */
 
-$router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
+$router->route('GET', '/pet/dog/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
 
     if ($dog = $app->getDog($dog_id)) {
 
@@ -431,31 +422,214 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
 
             return $restapi->response(200, [
                 'dog_id' => $dog['dog_id'],
+                'user' => [
+                    'user_id' => $dog['user']['user_id'],
+                    'name' => $dog['user']['name']
+                ],
                 'breed' => $dog['breed'],
                 'gender' => $dog['gender'],
                 'age_month' => $dog['age_month'],
                 'images' => $dog['images'],
                 'description' => $dog['description'],
                 'country_code' => $dog['country_code'],
-                'user' => [
-                    'user_id' => $dog['user_id'],
-                    'name' => $dog['user_name']
-                ],
-                'contact' => [
-                    'name' => $dog['contact_name'],
-                    'phone' => $dog['contact_phone'],
-                    'latitude' => $dog['contact_latitude'],
-                    'longitude' => $dog['contact_longitude']
-                ],
+                'contact' => $dog['contact'],
                 'comments' => $dog['comments'],
-                'views' => $dog['views'],
+                'view_count' => $dog['view_count'] + 1,
                 'day_left' => $dog['day_left'],
-                'updated_at' => $dog['updated_at'],
                 'created_at' => $dog['created_at']
             ]);
         }
 
         return $restapi->response(500);
+    }
+
+    return $restapi->response(404);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Add dog
+ *
+ * URL => /pet/dog
+ * Method => POST
+ * Authorization => Basic
+ *
+ * Required parameters => user_id, breed, gender, birth_year, birth_month, description, contact_name, contact_phone,
+ *   contact_place_id, images[]
+ *
+ * Return
+ * => 201: {
+ *   dog_id => integer
+ * }
+ * => 403 when unauthorized
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('POST', '/pet/dog', function () use ($app, $restapi) {
+
+    $request = $_POST;
+
+    if (!$restapi->found($request, 'user_id', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
+        'contact_name', 'contact_phone', 'contact_place_id') || !isset($_FILES['images'])) {
+
+        return $restapi->response(400);
+    }
+
+    $user_id = $request['user_id'];
+    $breed = $request['breed'];
+    $gender = $request['gender'];
+    $birth_year = $request['birth_year'];
+    $birth_month = $request['birth_month'];
+    $description = $request['description'];
+    $contact_name = $request['contact_name'];
+    $contact_phone = $request['contact_phone'];
+    $contact_place_id = $request['contact_place_id'];
+    $images = $app->reArrayImages($_FILES['images']);
+
+    if (sizeof($images) > 8) {
+        return $restapi->response(422);
+    }
+
+    foreach ($images as $image) {
+        if (!getimagesize($image['tmp_name']) || ($image['extension'] != 'jpg' && $image['extension'] != 'png' &&
+            $image['extension'] != 'jpeg' && $image['extension'] != 'gif')) {
+
+            return $restapi->response(415);
+        }
+    }
+
+    $basic_token = $restapi->getBasicToken();
+
+    if ($app->verifyAccessToken($user_id, $basic_token) || true) {
+
+        if ($dog_id = $app->addDog($user_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
+            $contact_phone, $contact_place_id)) {
+
+            if ($app->updateDogImages($dog_id, $images)) {
+
+                return $restapi->response(201, [
+                    'dog_id' => $dog_id
+                ]);
+            }
+
+            $app->deleteDog($dog_id);
+        }
+
+        return $restapi->response(500);
+    }
+
+    return $restapi->response(403);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Update dog
+ *
+ * URL => /pet/dog/{id}
+ * Method => PUT
+ * Authorization => Basic
+ *
+ * Required parameters => breed, gender, birth_year, birth_month, description, contact_name, contact_phone
+ *
+ * Return
+ * => 201: {
+ *   dog_id => integer
+ * }
+ * => 403 when unauthorized
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('PUT', '/pet/dog/[i:dog_id]', function ($dog_id) use ($app, $restapi) {
+
+    $request = $_POST;
+
+    if (!$restapi->found($request, 'breed', 'gender', 'birth_year', 'birth_month', 'description',
+            'contact_name', 'contact_phone')) {
+
+        return $restapi->response(400);
+    }
+
+    if ($dog = $app->getDog($dog_id)) {
+
+        $breed = $request['breed'];
+        $gender = $request['gender'];
+        $birth_year = $request['birth_year'];
+        $birth_month = $request['birth_month'];
+        $description = $request['description'];
+        $contact_name = $request['contact_name'];
+        $contact_phone = $request['contact_phone'];
+
+        $basic_token = $restapi->getBasicToken();
+
+        if ($app->verifyAccessToken($dog['user']['user_id'], $basic_token) || true) {
+
+            if ($app->updateDogDetails($dog_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name, $contact_phone)) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(403);
+    }
+
+    return $restapi->response(404);
+});
+
+
+
+/*................................................................................................................................
+ *
+ * Update dog contact place
+ *
+ * URL => /pet/dog/{id}/contact_place
+ * Method => PUT
+ * Authorization => Basic
+ *
+ * Required parameters => contact_place_id
+ *
+ * Return
+ * => 201: {
+ *   dog_id => integer
+ * }
+ * => 403 when unauthorized
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('PUT', '/pet/dog/[i:dog_id]/contact_place', function ($dog_id) use ($app, $restapi) {
+
+    $request = $_POST;
+
+    if (!$restapi->found($request, 'contact_place_id')) {
+
+        return $restapi->response(400);
+    }
+
+    if ($dog = $app->getDog($dog_id)) {
+
+        $contact_place_id = $request['contact_place_id'];
+
+        $basic_token = $restapi->getBasicToken();
+
+        if ($app->verifyAccessToken($dog['user']['user_id'], $basic_token) || true) {
+
+            if ($app->updateDogContactPlace($dog_id, $contact_place_id)) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(403);
     }
 
     return $restapi->response(404);
@@ -502,6 +676,60 @@ $router->route('DELETE', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, 
 
     return $restapi->response(404);
 });
+
+
+
+
+
+/*................................................................................................................................
+ *
+ * Report dog
+ *
+ * URL => /pets/dogs/{id}/report
+ * Method => POST
+ * Authorization => Basic
+ *
+ * Required parameters => user_id
+ *
+ * Return
+ * => 204 when report success
+ * => 400 when required parameters is blank
+ * => 403 when unauthorized
+ * => 404 when dog not found
+ * => 500 when server error
+ * ...............................................................................................................................
+ */
+
+$router->route('POST', '/pets/dogs/[i:dog_id]/comment', function ($dog_id) use ($app, $restapi) {
+
+    $request = $_POST;
+
+    if (!$restapi->found($request, 'user_id', 'content')) {
+        return $restapi->response(400);
+    }
+
+    $user_id = $request['user_id'];
+
+    if ($app->getDog($dog_id)) {
+
+        $basic_token = $restapi->getBasicToken();
+
+        if ($app->verifyAccessToken($user_id, $basic_token)) {
+
+            if ($app->commentDog($dog_id, $user_id, $dog_id)) {
+
+                return $restapi->response(204);
+            }
+
+            return $restapi->response(500);
+        }
+
+        return $restapi->response(403);
+    }
+
+    return $restapi->response(404);
+});
+
 
 
 
