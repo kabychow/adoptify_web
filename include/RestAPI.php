@@ -3,14 +3,25 @@
 class RestAPI
 {
 
-    public function found($array, ...$vars)
+    public function isset($array, ...$vars)
     {
         foreach ($vars as $var) {
-            if (!isset($array[$var]) || empty($array[$var])) {
+            if (!isset($array[$var])) {
                 return false;
             }
         }
         return true;
+    }
+
+
+    public function empty(...$vars)
+    {
+        foreach ($vars as $var) {
+            if (empty($array[$var]) && $var !== '0') {
+                return true;
+            }
+        }
+        return false;
     }
 
 

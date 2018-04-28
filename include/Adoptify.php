@@ -3,7 +3,8 @@
 class Adoptify
 {
     private $con;
-    private const IMAGE_PATH_PET_DOG = 'uploads/pet/dog/';
+    private const IMAGE_PATH_PET_DOG = 'uploads/pets/dogs/';
+    private const IMAGE_PATH_PET_CAT = 'uploads/pets/cats/';
 
     public function __construct(mysqli $con)
     {
@@ -14,7 +15,7 @@ class Adoptify
     public function login($email, $password)
     {
         $query = "
-          SELECT password
+          SELECT id, password
           FROM user
           WHERE email = ? AND is_disabled = 0
         ";
@@ -24,14 +25,15 @@ class Adoptify
         $user = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        return ($user && password_verify($password, $user['password']));
+        return ($user && password_verify($password, $user['password'])) ? $user['id'] : 0;
     }
 
 
     public function verifyAccessToken($user_id, $access_token)
     {
         $query = "
-          SELECT MD5(CONCAT(id, password, fcm_token)) AS access_token
+          SELECT id, name, gender, email, password, country_code, created_at,
+            MD5(CONCAT(id, password, fcm_token)) AS access_token
           FROM user
           WHERE id = ? AND is_disabled = 0
         ";
@@ -41,72 +43,43 @@ class Adoptify
         $user = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        return $user && ($access_token == $user['access_token']);
+        return ($user && ($access_token == $user['access_token'])) ? $user : null;
     }
 
 
-    public function getUserDetails($user_id)
+    public function addUser($name, $gender, $email, $password, $country_code, $fcm_token)
+    {
+        $password = password_hash($password, PASSWORD_DEFAULT);
+
+        $query = "
+          INSERT INTO user (name, gender, email, password, country_code, fcm_token)
+          VALUES (?, ?, ?, ?, ?, ?)
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('ssssss', $name, $gender, $email, $password, $country_code, $fcm_token);
+        $stmt->execute();
+        $stmt->store_result();
+        $affected_rows = $stmt->affected_rows;
+        $user_id = $stmt->insert_id;
+        $stmt->close();
+
+        return ($affected_rows > 0) ? $user_id : 0;
+    }
+
+
+    public function updateUserDetails($user_id, $name, $gender, $email, $country_code)
     {
         $query = "
-          SELECT id, name, email, country_code, created_at
-          FROM user
+          UPDATE user
+          SET name = ?, gender = ?, email = ?, country_code = ?
           WHERE id = ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->bind_param('ssssi', $name, $gender, $email, $country_code, $user_id);
+        $result = $stmt->execute();
         $stmt->close();
 
-        return $user;
-    }
-
-
-    public function addUser($name, $email, $password, $country_code, $fcm_token)
-    {
-        $name = trim($name);
-        $password = password_hash($password, PASSWORD_DEFAULT);
-        $country_code = strtoupper($country_code);
-
-        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $query = "
-              INSERT INTO user (name, email, password, country_code, fcm_token)
-              VALUES (?, ?, ?, ?, ?)
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('sssss', $name, $email, $password, $country_code, $fcm_token);
-            $stmt->execute();
-            $stmt->store_result();
-            $user_id = $stmt->insert_id;
-            $stmt->close();
-
-            return $user_id;
-        }
-
-        return 0;
-    }
-
-
-    public function updateUserDetails($user_id, $name, $email, $country_code)
-    {
-        $name = trim($name);
-        $country_code = strtoupper($country_code);
-
-        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $query = "
-              UPDATE user
-              SET name = ?, email = ?, country_code = ?
-              WHERE id = ?
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('sssi', $name, $email, $country_code, $user_id);
-            $result = $stmt->execute();
-            $stmt->close();
-
-            return $result;
-        }
-
-        return false;
+        return $result;
     }
 
 
@@ -126,7 +99,7 @@ class Adoptify
         $affected_rows = $stmt->affected_rows;
         $stmt->close();
 
-        return $affected_rows > 0;
+        return ($affected_rows > 0);
     }
 
 
@@ -160,61 +133,24 @@ class Adoptify
         $affected_rows = $stmt->affected_rows;
         $stmt->close();
 
-        return $affected_rows > 0;
+        return ($affected_rows > 0);
     }
 
 
-    public function getUserId($email)
+    public function isEmailExists($email)
     {
         $query = "
-          SELECT id
+          SELECT COUNT(*) AS count
           FROM user
           WHERE email = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('s', $email);
         $stmt->execute();
-        $user_id = $stmt->get_result()->fetch_assoc()['id'];
-        $stmt->close();
-
-        return $user_id;
-    }
-
-
-    public function isEmailExists($email, $user_id = 0)
-    {
-        if ($user_id && !$this->getUserDetails($user_id)) {
-            $user_id = 0;
-        }
-
-        if ($user_id) {
-            $query = "
-              SELECT COUNT(*) AS count
-              FROM user
-              WHERE email = ? AND email != (
-                SELECT email
-                FROM user
-                WHERE id = ?
-              )
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('si', $email, $user_id);
-
-        } else {
-            $query = "
-              SELECT COUNT(*) AS count
-              FROM user
-              WHERE email = ?
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('s', $email);
-        }
-
-        $stmt->execute();
         $count = $stmt->get_result()->fetch_assoc()['count'];
         $stmt->close();
 
-        return $count > 0;
+        return ($count > 0);
     }
 
 
@@ -233,24 +169,6 @@ class Adoptify
 
         return $user ? $user['access_token'] : null;
     }
-
-
-    public function verifyPassword($user_id, $password)
-    {
-        $query = "
-          SELECT password
-          FROM user
-          WHERE id = ?
-        ";
-        $stmt = $this->con->prepare($query);
-        $stmt->bind_param('i', $user_id);
-        $stmt->execute();
-        $user = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        return password_verify($password, $user['password']);
-    }
-
 
 
     public function getDog($dog_id)
@@ -290,32 +208,6 @@ class Adoptify
                 array_push($images, $image['path']);
             }
 
-            $query = "
-              SELECT dc.id AS dog_comment_id, dc.user_id, u.name AS user_name, dc.content, dc.created_at
-              FROM dog_comment AS dc
-              INNER JOIN user AS u ON dc.user_id = u.id
-              WHERE dc.dog_id = ? AND dc.is_deleted = 0
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('i', $dog_id);
-            $stmt->execute();
-            $comments_temp = $stmt->get_result();
-            $stmt->close();
-
-            $comments = [];
-
-            while ($comment = $comments_temp->fetch_assoc()) {
-                array_push($comments, [
-                    'dog_comment_id' => $comment['dog_comment_id'],
-                    'user' => [
-                        'user_id' => $comment['user_id'],
-                        'name' => $comment['user_name']
-                    ],
-                    'content' => $comment['content'],
-                    'created_at' => $comment['created_at']
-                ]);
-            }
-
             return [
                 'dog_id' => $dog_temp['id'],
                 'user' => [
@@ -336,7 +228,6 @@ class Adoptify
                     'area_level_1' => $dog_temp['contact_area_level_1'],
                     'area_level_2' => $dog_temp['contact_area_level_2']
                 ],
-                'comments' => $comments,
                 'view_count' => $dog_temp['view_count'],
                 'day_left' => $dog_temp['day_left'],
                 'created_at' => $dog_temp['created_at']
@@ -347,52 +238,27 @@ class Adoptify
     }
 
 
-    public function addDog($user_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
-        $contact_phone, $contact_place_id)
+    public function addDog($user_id, $country_code, $breed, $gender, $birth_year, $birth_month, $description,
+                           $contact_name, $contact_phone, $contact_latitude, $contact_longitude, $contact_area_level_1,
+                           $contact_area_level_2)
     {
-        $gender = strtoupper($gender);
-        $user = $this->getUserDetails($user_id);
-        $user_country_code = $user['country_code'];
         $dob = $birth_year . '-' . $birth_month . '-' . '01';
 
-        $url = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=' . $contact_place_id .
-            '&key=AIzaSyC80DoVueEYQV2-c7Wo0NRtc4fuGDOo-5g';
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = json_decode(curl_exec($ch), true);
-        curl_close($ch);
+        $query = "
+          INSERT INTO dog (user_id, breed, gender, dob, description, country_code, contact_name, contact_phone,
+            contact_latitude, contact_longitude, contact_area_level_1, contact_area_level_2, expiry_date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(DATE(NOW()), INTERVAL 150 DAY)) 
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('isssssssddss', $user_id, $breed, $gender, $dob, $description,
+            $country_code, $contact_name, $contact_phone, $contact_latitude, $contact_longitude, $contact_area_level_1,
+            $contact_area_level_2);
+        $stmt->execute();
+        $dog_id = $stmt->insert_id;
+        $affected_rows = $stmt->affected_rows;
+        $stmt->close();
 
-        if ($response['status'] == 'OK') {
-
-            $address_component_size = sizeof($response['result']['address_components']);
-            $country_code = $response['result']['address_components'][$address_component_size - 2]['short_name'];
-            $area_level_1 = $response['result']['address_components'][$address_component_size - 3]['long_name'];
-            $area_level_2 = $response['result']['address_components'][$address_component_size - 4]['long_name'];
-            $latitude = $response['result']['geometry']['location']['lat'];
-            $longitude = $response['result']['geometry']['location']['lng'];
-
-            if ($country_code == $user_country_code) {
-
-                $query = "
-                  INSERT INTO dog (user_id, breed, gender, dob, description, country_code, contact_name, contact_phone,
-                    contact_latitude, contact_longitude, contact_area_level_1, contact_area_level_2, expiry_date)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(DATE(NOW()), INTERVAL 150 DAY)) 
-                ";
-                $stmt = $this->con->prepare($query);
-                $stmt->bind_param('isssssssddss', $user_id, $breed, $gender, $dob, $description,
-                    $country_code, $contact_name, $contact_phone, $latitude, $longitude, $area_level_1, $area_level_2);
-                $stmt->execute();
-                $dog_id = $stmt->insert_id;
-                $affected_rows = $stmt->affected_rows;
-                $stmt->close();
-
-                if ($affected_rows > 0) {
-                    return $dog_id;
-                }
-            }
-        }
-
-        return 0;
+        return ($affected_rows > 0) ? $dog_id : 0;
     }
 
 
@@ -419,7 +285,6 @@ class Adoptify
                 $target = self::IMAGE_PATH_PET_DOG . $name;
 
                 $imageResizer = new ImageResizer($image['tmp_name'], __DIR__ . '/../' . $target);
-                echo __DIR__ . '/../' . $target;
 
                 if ($imageResizer->resize(450, 600)) {
                     $query = "
@@ -449,9 +314,9 @@ class Adoptify
     }
 
 
-    public function updateDogDetails($dog_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name, $contact_phone)
+    public function updateDogDetails($dog_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
+                                     $contact_phone)
     {
-        $gender = strtoupper($gender);
         $dob = $birth_year . '-' . $birth_month . '-' . '01';
 
         $query = "
@@ -468,48 +333,26 @@ class Adoptify
     }
 
 
-    public function updateDogContactPlace($dog_id, $contact_place_id)
+    public function updateDogContactPlace($dog_id, $contact_latitude, $contact_longitude, $contact_area_level_1,
+                                          $contact_area_level_2)
     {
-        $dog = $this->getDog($dog_id);
+        $query = "
+          UPDATE dog
+          SET contact_latitude = ?, contact_longitude = ?, contact_area_level_1 = ?, contact_area_level_2 = ?
+          WHERE id = ?
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('ddssi', $contact_latitude, $contact_longitude, $contact_area_level_1,
+            $contact_area_level_2, $dog_id);
+        $result = $stmt->execute();
+        $stmt->close();
 
-        $url = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=' . $contact_place_id .
-            '&key=AIzaSyC80DoVueEYQV2-c7Wo0NRtc4fuGDOo-5g';
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        $response = json_decode(curl_exec($ch), true);
-        curl_close($ch);
-
-        if ($response['status'] == 'OK') {
-
-            $address_component_size = sizeof($response['result']['address_components']);
-            $country_code = $response['result']['address_components'][$address_component_size - 2]['short_name'];
-            $area_level_1 = $response['result']['address_components'][$address_component_size - 3]['long_name'];
-            $area_level_2 = $response['result']['address_components'][$address_component_size - 4]['long_name'];
-            $latitude = $response['result']['geometry']['location']['lat'];
-            $longitude = $response['result']['geometry']['location']['lng'];
-
-            if ($country_code == $dog['country_code']) {
-
-                $query = "
-                  UPDATE dog
-                  SET contact_latitude = ?, contact_longitude = ?, contact_area_level_1 = ?, contact_area_level_2 = ?
-                  WHERE id = ?
-                ";
-                $stmt = $this->con->prepare($query);
-                $stmt->bind_param('ddssi', $latitude, $longitude, $area_level_1, $area_level_2, $dog_id);
-                $result = $stmt->execute();
-                $stmt->close();
-
-                return $result;
-            }
-        }
-
-        return false;
+        return $result;
     }
 
 
-    public function updateDogIncrementViews($dog_id) {
-
+    public function updateDogIncrementViews($dog_id)
+    {
         $query = "
           UPDATE dog
           SET view_count = view_count + 1
@@ -518,16 +361,12 @@ class Adoptify
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $dog_id);
         $stmt->execute();
-        $stmt->store_result();
-        $affected_rows = $stmt->affected_rows;
         $stmt->close();
-
-        return $affected_rows > 0;
     }
 
 
-    public function deleteDog($dog_id) {
-
+    public function deleteDog($dog_id)
+    {
         $query = "
           UPDATE dog
           SET is_deleted = 1
@@ -557,16 +396,12 @@ class Adoptify
         $dog_comment_id = $stmt->insert_id;
         $stmt->close();
 
-        if ($affected_rows > 0) {
-            return $dog_comment_id;
-        }
-
-        return 0;
+        return ($affected_rows > 0) ? $dog_comment_id : 0;
     }
 
 
-    public function reportDog($user_id, $dog_id) {
-
+    public function reportDog($user_id, $dog_id)
+    {
         $query = "
           INSERT INTO dog_report (dog_id, user_id)
           VALUES (?, ?)
@@ -582,6 +417,32 @@ class Adoptify
     }
 
 
+    public function processPlaceID($place_id)
+    {
+        $url = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=' . $place_id .
+            '&key=AIzaSyC80DoVueEYQV2-c7Wo0NRtc4fuGDOo-5g';
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $response = json_decode(curl_exec($ch), true);
+        curl_close($ch);
+
+        if ($response['status'] == 'OK') {
+
+            $size = sizeof($response['result']['address_components']);
+
+            return [
+                'country_code' => $response['result']['address_components'][$size - 2]['short_name'],
+                'area_level_1' => $response['result']['address_components'][$size - 3]['long_name'],
+                'area_level_2' => $response['result']['address_components'][$size - 4]['long_name'],
+                'latitude' => $response['result']['geometry']['location']['lat'],
+                'longitude' => $response['result']['geometry']['location']['lng']
+            ];
+        }
+
+        return null;
+    }
+
+
     public function reArrayImages($images) {
         $new = [];
         foreach ($images as $key => $all) {
@@ -593,6 +454,67 @@ class Adoptify
             }
         }
         return $new;
+    }
+
+
+    public function isValidName($name) {
+        return (strlen($name) <= 50);
+    }
+
+
+    public function isValidEmail($email) {
+        return filter_var($email, FILTER_VALIDATE_EMAIL);
+    }
+
+
+    public function isValidPassword($password) {
+        return (strlen($password) >= 6 && strlen($password) <= 32);
+    }
+
+
+    public function isValidCountryCode($country_code) {
+        $query = "
+          SELECT COUNT(*) AS count
+          FROM country
+          WHERE code = ?
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('s', $country_code);
+        $stmt->execute();
+        $count = $stmt->get_result()->fetch_assoc()['count'];
+        $stmt->close();
+
+        return ($count > 1);
+    }
+
+
+    public function isValidGender($gender) {
+        return ($gender == 'M' || $gender == 'F');
+    }
+
+
+    public function isValidBreed($breed) {
+        return (strlen($breed) <= 50);
+    }
+
+
+    public function isValidBirthYear($year) {
+        return ($year >= 1970 && $year <= date('Y'));
+    }
+
+
+    public function isValidBirthMonth($month) {
+        return ($month >= 1 && $month <= 12);
+    }
+
+
+    public function isValidDescription($description) {
+        return (strlen($description) <= 2000);
+    }
+
+
+    public function isValidPhone($phone) {
+        return (is_numeric($phone) && strlen($phone) <= 30);
     }
 
 

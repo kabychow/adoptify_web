@@ -21,7 +21,7 @@
 
 ## User Register
     POST /users
-    Required Parameters: name, email, password, country_code, fcm_token
+    Required Parameters: name, gender, email, password, country_code, fcm_token
     Authorization: -
 
     Success Response: 201 (Created)
@@ -45,6 +45,7 @@
     Success Response: 200 (OK)
         {
             user_id => int
+            gender => string (M/F)
             name => string
             email => string (email)
             country_code => string (country short codes)
@@ -58,7 +59,7 @@
 
 ## User Update Details
     PUT /users/{id}
-    Required Parameters: name, email, country_code
+    Required Parameters: name, gender, email, country_code
     Authorization: Basic
 
     Success Response: 204 (No Content)
@@ -119,8 +120,8 @@
 
 
 ## Dog Get All Nearby By Country
-    GET /pets/dogs/{country_code}
-    Required Parameters: latitude, longitude
+    GET /pets/dogs
+    Required Parameters: country_code, latitude, longitude
     Authorization: -
 
     Success Response: 200 (OK)
@@ -238,7 +239,7 @@
 
 ## Dog Report
     POST /pets/dogs/{id}/report
-    Required Parameters: user_id, content
+    Required Parameters: user_id
     Authorization: Basic
 
     Success Response: 204 (No Content)
@@ -371,7 +372,7 @@
 
 ## Cat Report
     POST /pets/cats/{id}/report
-    Required Parameters: user_id, content
+    Required Parameters: user_id
     Authorization: Basic
 
     Success Response: 204 (No Content)
