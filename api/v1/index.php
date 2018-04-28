@@ -13,7 +13,6 @@ $router = new Router();
 
 
 
-
 $router->route('POST', '/auth', function () use ($app, $restapi)
 {
     if ($restapi->isset($_POST, 'email', 'password', 'fcm_token')) {
@@ -282,7 +281,7 @@ $router->route('GET', '/pets/dogs', function () use ($app, $restapi)
 $router->route('POST', '/pets/dogs', function () use ($app, $restapi)
 {
     if ($restapi->isset($_POST, 'user_id', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
-        'contact_name', 'contact_phone', 'contact_place_id' && isset($_FILES['images']))) {
+        'contact_name', 'contact_phone', 'contact_place_id') && isset($_FILES['images'])) {
 
         $user_id = $_POST['user_id'];
         $breed = $_POST['breed'];
@@ -297,11 +296,11 @@ $router->route('POST', '/pets/dogs', function () use ($app, $restapi)
 
         if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
 
-            if (!$restapi->empty($user_id, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
+            if (!$restapi->empty($breed, $gender, $birth_year, $birth_month, $description, $contact_name,
                 $contact_phone, $contact_place_id)) {
 
-                if ($app->isValidBreed($breed) && $app->isValidGender($gender) && $app->isValidBirthYear($birth_year) &&
-                    $app->isValidBirthMonth($birth_month) && $app->isValidDescription($description) &&
+                if ($app->isValidBreed($breed) && $app->isValidGender($gender) &&
+                    $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
                     $app->isValidName($contact_name) && $app->isValidPhone($contact_phone) && (sizeof($images) <= 8)) {
 
                     foreach ($images as $image) {
@@ -383,6 +382,7 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
             ],
             'view_count' => $dog['view_count'] + 1,
             'day_left' => $dog['day_left'],
+            'thumbnail' => $dog['thumbnail'],
             'created_at' => $dog['created_at']
         ]);
     }
@@ -395,28 +395,29 @@ $router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
 
 $router->route('PUT', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi)
 {
-    if ($restapi->isset($_POST, 'breed', 'gender', 'birth_year', 'birth_month', 'description',
+    parse_str(file_get_contents('php://input'), $_PUT);
+
+    if ($restapi->isset($_PUT, 'breed', 'gender', 'birth_year', 'birth_month', 'description',
         'contact_name', 'contact_phone')) {
 
-        $breed = $_POST['breed'];
-        $gender = $_POST['gender'];
-        $birth_year = $_POST['birth_year'];
-        $birth_month = $_POST['birth_month'];
-        $description = $_POST['description'];
-        $contact_name = $_POST['contact_name'];
-        $contact_phone = $_POST['contact_phone'];
+        $breed = $_PUT['breed'];
+        $gender = strtoupper($_PUT['gender']);
+        $birth_year = $_PUT['birth_year'];
+        $birth_month = $_PUT['birth_month'];
+        $description = $_PUT['description'];
+        $contact_name = $_PUT['contact_name'];
+        $contact_phone = $_PUT['contact_phone'];
 
         if ($dog = $app->getDog($dog_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user_id'], $restapi->getBasicToken())) {
+            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
 
                 if (!$restapi->empty($breed, $gender, $birth_year, $birth_month, $description, $contact_name,
                     $contact_phone)) {
 
                     if ($app->isValidBreed($breed) && $app->isValidGender($gender) &&
-                        $app->isValidBirthYear($birth_year) && $app->isValidBirthMonth($birth_month) &&
-                        $app->isValidDescription($description) && $app->isValidName($contact_name) &&
-                        $app->isValidPhone($contact_phone)) {
+                        $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
+                        $app->isValidName($contact_name) && $app->isValidPhone($contact_phone)) {
 
                         if ($app->updateDogDetails($dog_id, $breed, $gender, $birth_year, $birth_month, $description,
                             $contact_name, $contact_phone)) {
@@ -444,7 +445,7 @@ $router->route('PUT', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
 
 
 
-$router->route('PUT', '/pets/dogs/[i:dog_id]/images', function ($dog_id) use ($app, $restapi)
+$router->route('POST', '/pets/dogs/[i:dog_id]/images', function ($dog_id) use ($app, $restapi)
 {
     if (isset($_FILES['images'])) {
 
@@ -452,7 +453,7 @@ $router->route('PUT', '/pets/dogs/[i:dog_id]/images', function ($dog_id) use ($a
 
         if ($dog = $app->getDog($dog_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user_id'], $restapi->getBasicToken())) {
+            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
 
                 if ((sizeof($images) <= 8)) {
 
@@ -491,25 +492,32 @@ $router->route('PUT', '/pets/dogs/[i:dog_id]/images', function ($dog_id) use ($a
 
 $router->route('PUT', '/pets/dogs/[i:dog_id]/contact_place', function ($dog_id) use ($app, $restapi)
 {
-    if ($restapi->isset($_POST, 'contact_place_id')) {
+    parse_str(file_get_contents('php://input'), $_PUT);
 
-        $contact_place_id = $_POST['contact_place_id'];
+    if ($restapi->isset($_PUT, 'contact_place_id')) {
+
+        $contact_place_id = $_PUT['contact_place_id'];
 
         if ($dog = $app->getDog($dog_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user_id'], $restapi->getBasicToken())) {
+            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
 
                 if (!$restapi->empty($contact_place_id)) {
 
                     if ($place = $app->processPlaceID($contact_place_id)) {
 
-                        if ($app->updateDogContactPlace($dog_id, $place['latitude'], $place['longitude'],
-                            $place['area_level_1'], $place['area_level_2'])) {
+                        if ($place['country_code'] == $user['country_code']) {
 
-                            return $restapi->response(204);
+                            if ($app->updateDogContactPlace($dog_id, $place['latitude'], $place['longitude'],
+                                $place['area_level_1'], $place['area_level_2'])) {
+
+                                return $restapi->response(204);
+                            }
+
+                            return $restapi->response(500);
                         }
 
-                        return $restapi->response(500);
+                        return $restapi->response(412);
                     }
 
                     return $restapi->response(503);
@@ -534,7 +542,7 @@ $router->route('DELETE', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, 
 {
     if ($dog = $app->getDog($dog_id)) {
 
-        if ($user = $app->verifyAccessToken($dog['user_id'], $restapi->getBasicToken())) {
+        if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
 
             if ($app->deleteDog($dog['dog_id'])) {
 
@@ -580,6 +588,13 @@ $router->route('POST', '/pets/dogs/[i:dog_id]/report', function ($dog_id) use ($
     return $restapi->response(400);
 });
 
+
+
+
+$router->routeError(function() use ($restapi)
+{
+    return $restapi->response(500);
+});
 
 
 $router->run();

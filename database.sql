@@ -23,6 +23,7 @@ CREATE TABLE `dog` (
     `user_id` INT UNSIGNED NOT NULL,
     `breed` VARCHAR(50) NOT NULL,
     `gender` ENUM('M','F') NOT NULL,
+    `image_count` TINYINT NOT NULL DEFAULT 0,
     `dob` DATE NOT NULL,
     `description` VARCHAR(2000) NOT NULL,
     `country_code` CHAR(2) NOT NULL,
@@ -36,11 +37,6 @@ CREATE TABLE `dog` (
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `expiry_date` DATE NOT NULL,
     `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
-);
-
-CREATE TABLE `dog_image` (
-    `dog_id` INT UNSIGNED NOT NULL,
-    `path` VARCHAR(512) UNIQUE NOT NULL
 );
 
 CREATE TABLE `dog_report` (
@@ -56,6 +52,7 @@ CREATE TABLE `cat` (
     `user_id` INT UNSIGNED NOT NULL,
     `breed` VARCHAR(50) NOT NULL,
     `gender` ENUM('M','F') NOT NULL,
+    `image_count` TINYINT NOT NULL DEFAULT 0,
     `dob` DATE NOT NULL,
     `description` VARCHAR(2000) NOT NULL,
     `country_code` CHAR(2) NOT NULL,
@@ -71,11 +68,6 @@ CREATE TABLE `cat` (
     `is_deleted` TINYINT(1) NOT NULL DEFAULT 0
 );
 
-CREATE TABLE `cat_image` (
-    `cat_id` INT UNSIGNED NOT NULL,
-    `path` VARCHAR(512) UNIQUE NOT NULL
-);
-
 CREATE TABLE `cat_report` (
     `id` INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
     `cat_id` INT UNSIGNED NOT NULL,
@@ -89,15 +81,26 @@ ALTER TABLE `user` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`)
 ALTER TABLE `dog` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 ALTER TABLE `dog` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`);
 
-ALTER TABLE `dog_image` ADD FOREIGN KEY (`dog_id`) REFERENCES `dog`(`id`);
-
 ALTER TABLE `dog_report` ADD FOREIGN KEY (`dog_id`) REFERENCES `dog`(`id`);
 ALTER TABLE `dog_report` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 
 ALTER TABLE `cat` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
 ALTER TABLE `cat` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`code`);
 
-ALTER TABLE `cat_image` ADD FOREIGN KEY (`cat_id`) REFERENCES `cat`(`id`);
-
 ALTER TABLE `cat_report` ADD FOREIGN KEY (`cat_id`) REFERENCES `cat`(`id`);
 ALTER TABLE `cat_report` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`id`);
+
+
+INSERT INTO `country` (code, name) VALUES ('AU', 'Australia');
+INSERT INTO `country` (code, name) VALUES ('CA', 'Canada');
+INSERT INTO `country` (code, name) VALUES ('CN', 'China');
+INSERT INTO `country` (code, name) VALUES ('GB', 'United Kingdom');
+INSERT INTO `country` (code, name) VALUES ('HK', 'Hong Kong');
+INSERT INTO `country` (code, name) VALUES ('JP', 'Japan');
+INSERT INTO `country` (code, name) VALUES ('KR', 'South Korea');
+INSERT INTO `country` (code, name) VALUES ('MO', 'Macau');
+INSERT INTO `country` (code, name) VALUES ('MY', 'Malaysia');
+INSERT INTO `country` (code, name) VALUES ('NZ', 'New Zealand');
+INSERT INTO `country` (code, name) VALUES ('SG', 'Singapore');
+INSERT INTO `country` (code, name) VALUES ('TW', 'Taiwan');
+INSERT INTO `country` (code, name) VALUES ('US', 'United States');

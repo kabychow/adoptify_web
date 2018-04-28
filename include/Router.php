@@ -2,7 +2,7 @@
 
 class Router
 {
-    private $basePath, $routes = [];
+    private $basePath, $routes = [], $errorRoute;
 
     private $matchTypes = array(
         'i' => '[0-9]++',
@@ -18,6 +18,10 @@ class Router
     {
         $this->routes[] = array($method, $route, $target);
         return;
+    }
+
+    public function routeError($callback) {
+        $this->errorRoute = $callback;
     }
 
     private function match()
@@ -110,12 +114,8 @@ class Router
     {
         $match = $this->match();
 
-        if ($match && is_callable($match['target'])) {
-            echo call_user_func_array($match['target'], $match['params']);
-            exit();
-        } else {
-            http_response_code(500);
-            die();
-        }
+        ($match && is_callable($match['target']))
+            ? exit(call_user_func_array($match['target'], $match['params']))
+            : exit(call_user_func($this->errorRoute));
     }
 }

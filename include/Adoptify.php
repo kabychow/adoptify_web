@@ -174,7 +174,7 @@ class Adoptify
     public function getDog($dog_id)
     {
         $query = "
-          SELECT d.id, d.user_id, u.name AS user_name, d.breed, d.gender,
+          SELECT d.id, d.user_id, u.name AS user_name, d.breed, d.gender, d.image_count,
             (((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(d.dob) * 12) + MONTH(d.dob))) AS age_month, d.description,
             d.country_code, d.contact_name, d.contact_phone, d.contact_latitude, d.contact_longitude,
             d.contact_area_level_1, d.contact_area_level_2, d.view_count, d.created_at,
@@ -186,51 +186,48 @@ class Adoptify
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $dog_id);
         $stmt->execute();
-        $dog_temp = $stmt->get_result()->fetch_assoc();
+        $dog = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        if ($dog_temp) {
+        if ($dog) {
 
-            $query = "
-              SELECT path
-              FROM dog_image
-              WHERE dog_id = ?
-            ";
-            $stmt = $this->con->prepare($query);
-            $stmt->bind_param('i', $dog_id);
-            $stmt->execute();
-            $images_temp = $stmt->get_result();
-            $stmt->close();
+            $dog['images'] = [];
 
-            $images = [];
+            if ($dog['image_count'] > 0) {
 
-            while ($image = $images_temp->fetch_assoc()) {
-                array_push($images, $image['path']);
+                $dog['thumbnail'] = self::IMAGE_PATH_PET_DOG . $dog_id . '-0.jpg';
+
+                for ($i = 1; $i <= $dog['image_count']; $i++) {
+
+                    array_push($dog['images'], self::IMAGE_PATH_PET_DOG . $dog_id . '-' . $i . '.jpg');
+                }
             }
 
             return [
-                'dog_id' => $dog_temp['id'],
+
+                'dog_id' => $dog['id'],
                 'user' => [
-                    'user_id' => $dog_temp['user_id'],
-                    'name' => $dog_temp['user_name']
+                    'user_id' => $dog['user_id'],
+                    'name' => $dog['user_name']
                 ],
-                'breed' => $dog_temp['breed'],
-                'gender' => $dog_temp['gender'],
-                'age_month' => $dog_temp['age_month'],
-                'images' => $images,
-                'description' => $dog_temp['description'],
-                'country_code' => $dog_temp['country_code'],
+                'breed' => $dog['breed'],
+                'gender' => $dog['gender'],
+                'age_month' => $dog['age_month'],
+                'images' => $dog['images'],
+                'description' => $dog['description'],
+                'country_code' => $dog['country_code'],
                 'contact' => [
-                    'name' => $dog_temp['contact_name'],
-                    'phone' => $dog_temp['contact_phone'],
-                    'latitude' => $dog_temp['contact_latitude'],
-                    'longitude' => $dog_temp['contact_longitude'],
-                    'area_level_1' => $dog_temp['contact_area_level_1'],
-                    'area_level_2' => $dog_temp['contact_area_level_2']
+                    'name' => $dog['contact_name'],
+                    'phone' => $dog['contact_phone'],
+                    'latitude' => $dog['contact_latitude'],
+                    'longitude' => $dog['contact_longitude'],
+                    'area_level_1' => $dog['contact_area_level_1'],
+                    'area_level_2' => $dog['contact_area_level_2']
                 ],
-                'view_count' => $dog_temp['view_count'],
-                'day_left' => $dog_temp['day_left'],
-                'created_at' => $dog_temp['created_at']
+                'view_count' => $dog['view_count'],
+                'day_left' => $dog['day_left'],
+                'thumbnail' => $dog['thumbnail'],
+                'created_at' => $dog['created_at']
             ];
         }
 
@@ -266,51 +263,47 @@ class Adoptify
     {
         require __DIR__ . '/../include/ImageResizer.php';
 
-        array_map('unlink', glob($dog_id . '-*.*'));
+        array_map('unlink', glob(__DIR__ . '/../' . self::IMAGE_PATH_PET_DOG . $dog_id . '-*.jpg'));
+
+        $image_count = sizeof($images);
+
+        for ($i = 0; $i < $image_count; $i++) {
+
+            if (!$i) {
+
+                $name = $dog_id . '-' . $i . '.jpg';
+                $target = self::IMAGE_PATH_PET_DOG . $name;
+
+                $imageResizer = new ImageResizer($images[$i]['tmp_name'], __DIR__ . '/../' . $target);
+
+                if (!$imageResizer->resize(150, 200)) {
+
+                    return false;
+                }
+            }
+
+            $name = $dog_id . '-' . ($i + 1) . '.jpg';
+            $target = self::IMAGE_PATH_PET_DOG . $name;
+
+            $imageResizer = new ImageResizer($images[$i]['tmp_name'], __DIR__ . '/../' . $target);
+
+            if (!$imageResizer->resize(450, 600)) {
+
+                return false;
+            }
+        }
 
         $query = "
-          DELETE FROM dog_image
-          WHERE dog_id = ?
+          UPDATE dog
+          SET image_count = ?
+          WHERE id = ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('i', $dog_id);
+        $stmt->bind_param('ii', $image_count, $dog_id);
         $result = $stmt->execute();
         $stmt->close();
 
-        if ($result) {
-
-            foreach ($images as $image) {
-
-                $name = $dog_id . '-' . md5(openssl_random_pseudo_bytes(32)) . '.jpg';
-                $target = self::IMAGE_PATH_PET_DOG . $name;
-
-                $imageResizer = new ImageResizer($image['tmp_name'], __DIR__ . '/../' . $target);
-
-                if ($imageResizer->resize(450, 600)) {
-                    $query = "
-                      INSERT INTO dog_image (dog_id, path)
-                      VALUES (?, ?)
-                    ";
-                    $stmt = $this->con->prepare($query);
-                    $stmt->bind_param('is', $dog_id, $target);
-                    $stmt->execute();
-                    $affected_rows = $stmt->affected_rows;
-                    $stmt->close();
-
-                    if ($affected_rows < 1) {
-                        return false;
-                    }
-
-                } else {
-                    return false;
-                }
-
-            }
-
-            return true;
-        }
-
-        return false;
+        return $result;
     }
 
 
@@ -407,7 +400,7 @@ class Adoptify
           VALUES (?, ?)
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('ii', $user_id, $dog_id);
+        $stmt->bind_param('ii', $dog_id, $user_id);
         $stmt->execute();
         $stmt->store_result();
         $affected_rows = $stmt->affected_rows;
@@ -484,7 +477,7 @@ class Adoptify
         $count = $stmt->get_result()->fetch_assoc()['count'];
         $stmt->close();
 
-        return ($count > 1);
+        return ($count > 0);
     }
 
 
@@ -498,8 +491,14 @@ class Adoptify
     }
 
 
-    public function isValidBirthYear($year) {
-        return ($year >= 1970 && $year <= date('Y'));
+    public function isValidDob($year, $month) {
+
+        if (($year >= 1970 && $year <= date('Y')) && ($month >= 1 && $month <= 12)) {
+
+            return ($year == date('Y')) ? ($month <= date('n')) : true;
+        }
+
+        return false;
     }
 
 

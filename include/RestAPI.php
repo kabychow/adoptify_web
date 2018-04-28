@@ -17,7 +17,7 @@ class RestAPI
     public function empty(...$vars)
     {
         foreach ($vars as $var) {
-            if (empty($array[$var]) && $var !== '0') {
+            if (empty($var) && $var !== '0') {
                 return true;
             }
         }
