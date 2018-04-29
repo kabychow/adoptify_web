@@ -10,15 +10,16 @@ class ImageResizer {
     private $target_path;
 
     
-    public function __construct($source_path, $target_path)
+    public function __construct()
     {
         $this->error = 0;
-        $this->source_path = $source_path;
-        $this->target_path = $target_path;
     }
 
 
-    public function resize($width = 0, $height = 0) {
+    public function resize($source_path, $target_path, $width = 0, $height = 0) {
+
+        $this->source_path = $source_path;
+        $this->target_path = $target_path;
 
         if ($this->_create_from_source()) {
 
@@ -78,7 +79,7 @@ class ImageResizer {
 
             return $this->_write_image($target_identifier);
         }
-        
+
         return false;
     }
 
@@ -89,17 +90,17 @@ class ImageResizer {
 
             $this->error = 7;
             return false;
-            
+
         } elseif (!is_file($this->source_path)) {
 
             $this->error = 1;
             return false;
-            
+
         } elseif (!is_readable($this->source_path)) {
 
             $this->error = 2;
             return false;
-            
+
         } elseif ($this->target_path == $this->source_path && !is_writable($this->source_path)) {
 
             $this->error = 3;
@@ -115,7 +116,7 @@ class ImageResizer {
             $this->target_type = strtolower(substr($this->target_path, strrpos($this->target_path, '.') + 1));
 
             switch ($this->source_type) {
-                
+
                 case IMAGETYPE_GIF:
 
                     $identifier = imagecreatefromgif($this->source_path);
@@ -155,11 +156,11 @@ class ImageResizer {
         return true;
     }
 
-    
+
     private function _prepare_image($width, $height) {
 
         $identifier = imagecreatetruecolor((int)$width <= 0 ? 1 : (int)$width, (int)$height <= 0 ? 1 : (int)$height);
-        
+
         if ($this->target_type == 'png') {
 
             imagealphablending($identifier, false);
@@ -178,9 +179,9 @@ class ImageResizer {
 
             imagefill($identifier, 0, 0, $transparent_color);
             imagecolortransparent($identifier, $transparent_color);
-            
+
         } else {
-            
+
             $background_color = imagecolorallocate($identifier, 255, 255, 255);
             imagefill($identifier, 0, 0, $background_color);
 
@@ -189,55 +190,55 @@ class ImageResizer {
         return $identifier;
     }
 
-    
+
     private function _write_image($identifier) {
-        
+
         switch ($this->target_type) {
 
             case 'gif':
-                
+
                 if (!function_exists('imagegif')) {
-                    
+
                     $this->error = 6;
                     return false;
-                    
+
                 } elseif (@!imagegif($identifier, $this->target_path)) {
-                    
+
                     $this->error = 3;
                     return false;
 
                 }
 
                 break;
-            
+
             case 'jpg':
             case 'jpeg':
 
                 if (!function_exists('imagejpeg')) {
-                    
+
                     $this->error = 6;
                     return false;
-                    
+
                 } elseif (@!imagejpeg($identifier, $this->target_path, 85)) {
-                    
+
                     $this->error = 3;
                     return false;
 
                 }
 
                 break;
-            
+
             case 'png':
 
                 imagesavealpha($identifier, true);
-                
+
                 if (!function_exists('imagepng')) {
 
                     $this->error = 6;
                     return false;
-                    
+
                 } elseif (@!imagepng($identifier, $this->target_path, 9)) {
-                    
+
                     $this->error = 3;
                     return false;
 

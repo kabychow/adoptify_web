@@ -1,60 +1,90 @@
 <?php
 
-$con = new mysqli('127.0.0.1', 'root', '\'', 'adoptify');
-
-require __DIR__ . '/../../include/Adoptify.php';
-$app = new Adoptify($con);
-
-require __DIR__ . '/../../include/RestAPI.php';
-$restapi = new RestAPI();
+/*......................................................................................................................
+ *
+ * Adoptify API v1
+ *......................................................................................................................
+ *
+ * Dependencies {
+ *   apache2 with url rewrite enabled
+ *   php-7.1
+ *   mysql-5.7
+ * }
+ *......................................................................................................................
+ */
 
 require __DIR__ . '/../../include/Router.php';
 $router = new Router();
 
+require __DIR__ . '/../../include/Adoptify.php';
+$app = new Adoptify();
 
 
-$router->route('POST', '/auth', function () use ($app, $restapi)
+
+
+/*......................................................................................................................
+ *
+ * User Authentication
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('POST', '/auth', function () use ($app)
 {
-    if ($restapi->isset($_POST, 'email', 'password', 'fcm_token')) {
+    if ($app->isset($_POST, 'email', 'password', 'fcm_token')) {
 
         $email = $_POST['email'];
         $password = $_POST['password'];
         $fcm_token = $_POST['fcm_token'];
 
-        if (!$restapi->empty($email, $password, $fcm_token)) {
+        if (!$app->empty($email, $password, $fcm_token)) {
 
             if ($app->isValidEmail($email)) {
 
-                if ($user_id = $app->login($email, $password)) {
+                if ($user_id = $app->getUserId($email)) {
 
-                    if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+                    if ($app->verifyPassword($user_id, $password)) {
 
-                        return $restapi->response(200, [
-                            'user_id' => $user_id,
-                            'access_token' => $app->getAccessToken($user_id)
-                        ]);
+                        if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+
+                            return $app->response(200, [
+                                'id' => $user_id,
+                                'access_token' => $app->getAccessToken($user_id)
+                            ]);
+                        }
+
+                        return $app->response(500);
                     }
 
-                    return $restapi->response(500);
+                    return $app->response(401);
                 }
 
-                return $restapi->response(401);
+                return $app->response(404);
             }
 
         }
 
-        return $restapi->response(422);
+        return $app->response(422);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('POST', '/users', function () use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Register
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('POST', '/users', function () use ($app)
 {
-    if ($restapi->isset($_POST, 'name', 'gender', 'email', 'password', 'country_code', 'fcm_token')) {
+    if ($app->isset($_POST, 'name', 'gender', 'email', 'password', 'country_code', 'fcm_token')) {
 
         $name = trim($_POST['name']);
         $gender = strtoupper($_POST['gender']);
@@ -63,227 +93,385 @@ $router->route('POST', '/users', function () use ($app, $restapi)
         $country_code = strtoupper($_POST['country_code']);
         $fcm_token = $_POST['fcm_token'];
 
-        if (!$restapi->empty($name, $gender, $email, $password, $country_code, $fcm_token)) {
+        if (!$app->empty($name, $gender, $email, $password, $country_code, $fcm_token)) {
 
             if ($app->isvalidName($name) && $app->isValidGender($gender) && $app->isValidEmail($email) &&
                 $app->isValidPassword($password) && $app->isValidCountryCode($country_code)) {
 
-                if (!$app->isEmailExists($email)) {
+                if (!$app->getUserId($email)) {
 
                     if ($user_id = $app->addUser($name, $gender, $email, $password, $country_code, $fcm_token)) {
 
-                        return $restapi->response(201, [
-                            'user_id' => $user_id,
+                        return $app->response(201, [
+                            'id' => $user_id,
                             'access_token' => $app->getAccessToken($user_id)
                         ]);
                     }
 
-                    return $restapi->response(500);
+                    return $app->response(500);
                 }
 
-                return $restapi->response(409);
+                return $app->response(409);
             }
 
         }
 
-        return $restapi->response(422);
+        return $app->response(422);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Get Details
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app)
 {
-    if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+    if ($user = $app->getUser($user_id)) {
 
-        return $restapi->response(200, [
-            'user_id' => $user['id'],
-            'name' => $user['name'],
-            'gender' => $user['gender'],
-            'email' => $user['email'],
-            'country_code' => $user['country_code'],
-            'created_at' => $user['created_at']
-        ]);
+        if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
+
+            return $app->response(200, $user);
+        }
+
+        return $app->response(403);
     }
 
-    return $restapi->response(403);
+    return $app->response(404);
 });
 
 
 
 
-$router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Get Published Pets
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('GET', '/users/[i:user_id]/pets', function ($user_id) use ($app)
+{
+    if ($user = $app->getUser($user_id)) {
+
+        if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
+
+            $pets = $app->getUserPets($user_id);
+
+            return $app->response(200, $pets);
+        }
+
+        return $app->response(403);
+    }
+
+    return $app->response(404);
+});
+
+
+
+
+/*......................................................................................................................
+ *
+ * User Update Details
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app)
 {
     parse_str(file_get_contents('php://input'), $_PUT);
 
-    if ($restapi->isset($_PUT, 'name', 'gender', 'email', 'country_code')) {
+    if ($app->isset($_PUT, 'name', 'gender', 'email', 'country_code')) {
 
         $name = trim($_PUT['name']);
         $gender = strtoupper($_PUT['gender']);
         $email = $_PUT['email'];
         $country_code = strtoupper($_PUT['country_code']);
 
-        if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+        if ($user = $app->getUser($user_id)) {
 
-            if (!$restapi->empty($name, $gender, $email, $country_code)) {
+            if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-                if ($app->isvalidName($name) && $app->isValidGender($gender) && $app->isValidEmail($email) &&
-                    $app->isValidCountryCode($country_code)) {
+                if (!$app->empty($name, $gender, $email, $country_code)) {
 
-                    if ($email == $user['email'] || !$app->isEmailExists($email)) {
+                    if ($app->isvalidName($name) && $app->isValidGender($gender) && $app->isValidEmail($email) &&
+                        $app->isValidCountryCode($country_code)) {
 
-                        if ($app->updateUserDetails($user_id, $name, $gender, $email, $country_code)) {
+                        if ($email == $user['email'] || !$app->getUserId($email)) {
 
-                            return $restapi->response(204);
+                            if ($app->updateUserDetails($user_id, $name, $gender, $email, $country_code)) {
+
+                                return $app->response(204);
+                            }
+
+                            return $app->response(500);
                         }
 
-                        return $restapi->response(500);
+                        return $app->response(409);
                     }
 
-                    return $restapi->response(409);
                 }
 
+                return $app->response(422);
             }
 
-            return $restapi->response(422);
+            return $app->response(403);
         }
 
-        return $restapi->response(403);
+        return $app->response(404);
+
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Update Password
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($app)
 {
     parse_str(file_get_contents('php://input'), $_PUT);
 
-    if ($restapi->isset($_PUT, 'current_password', 'new_password')) {
+    if ($app->isset($_PUT, 'current_password', 'new_password')) {
 
         $current_password = $_PUT['current_password'];
         $new_password = $_PUT['new_password'];
 
-        if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+        if ($user = $app->getUser($user_id)) {
 
-            if (!$restapi->empty($current_password, $new_password)) {
+            if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-                if ($app->isValidPassword($new_password)) {
+                if (!$app->empty($current_password, $new_password)) {
 
-                    if (password_verify($current_password, $user['password'])) {
+                    if ($app->isValidPassword($new_password)) {
 
-                        if ($app->updateUserPassword($user_id, $new_password)) {
+                        if ($app->verifyPassword($user_id, $current_password)) {
 
-                            return $restapi->response(200, [
-                                'access_token' => $app->getAccessToken($user_id)
-                            ]);
+                            if ($app->updateUserPassword($user_id, $new_password)) {
+
+                                return $app->response(200, [
+                                    'access_token' => $app->getAccessToken($user_id)
+                                ]);
+                            }
+
+                            return $app->response(500);
                         }
 
-                        return $restapi->response(500);
+                        return $app->response(401);
                     }
 
-                    return $restapi->response(401);
                 }
 
+                return $app->response(422);
             }
 
-            return $restapi->response(422);
+            return $app->response(403);
         }
 
-        return $restapi->response(403);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Update FCM Token
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($app)
 {
     parse_str(file_get_contents('php://input'), $_PUT);
 
-    if ($restapi->isset($_PUT, 'fcm_token')) {
+    if ($app->isset($_PUT, 'fcm_token')) {
 
         $fcm_token = $_PUT['fcm_token'];
 
-        if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+        if ($user = $app->getUser($user_id)) {
 
-            if (!$restapi->empty($fcm_token)) {
+            if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-                if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+                if (!$app->empty($fcm_token)) {
 
-                    return $restapi->response(200, [
-                        'access_token' => $app->getAccessToken($user_id)
-                    ]);
+                    if ($app->updateUserFcmToken($user_id, $fcm_token)) {
+
+                        return $app->response(200, [
+                            'access_token' => $app->getAccessToken($user_id)
+                        ]);
+                    }
+
+                    return $app->response(500);
                 }
 
-                return $restapi->response(500);
+                return $app->response(422);
             }
 
-            return $restapi->response(422);
+            return $app->response(403);
         }
 
-        return $restapi->response(403);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * User Disable Account
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app)
 {
-    if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+    if ($user = $app->getUser($user_id)) {
 
-        if ($app->disableUser($user_id)) {
+        if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-            return $restapi->response(204);
+            if ($app->disableUser($user_id)) {
+
+                return $app->response(204);
+            }
+
+            return $app->response(500);
         }
 
-        return $restapi->response(500);
+        return $app->response(403);
     }
 
-    return $restapi->response(403);
+    return $app->response(404);
 });
 
 
 
 
-$router->route('GET', '/pets/dogs', function () use ($app, $restapi)
-{
-    if ($restapi->isset($_GET, 'country_code', 'latitude', 'longitude')) {
+/*......................................................................................................................
+ *
+ * User Recover Password
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
 
-        $country_code = $_GET['country_code'];
+$router->route('POST', '/recover-password', function() use ($app)
+{
+    if ($app->isset($_POST, 'email')) {
+
+        $email = $_POST['email'];
+
+        if ($app->empty($email)) {
+
+            if ($app->isValidEmail($email)) {
+
+                if ($user_id = $app->getUserId($email)) {
+
+                    $recovery_password = $app->getRecoveryPassword($user_id);
+
+                    if (mail($email, 'Adoptify: Password Recovery',
+                        'Your new password is ' . $recovery_password)) {
+
+                        return $app->response(204);
+                        // TODO: implement mailer and 409
+                    }
+
+                    return $app->response(500);
+                }
+
+                return $app->response(404);
+            }
+
+        }
+
+        return $app->response(422);
+    }
+
+    return $app->response(400);
+});
+
+
+
+
+/*......................................................................................................................
+ *
+ * Pet Get All
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('GET', '/pets', function () use ($app)
+{
+    if ($app->isset($_GET, 'type', 'country_code', 'latitude', 'longitude')) {
+
+        $type = strtoupper($_GET['type']);
+        $country_code = strtoupper($_GET['country_code']);
         $latitude = $_GET['latitude'];
         $longitude = $_GET['longitude'];
 
-        if (!$restapi->empty($country_code, $latitude, $longitude)) {
+        if (!$app->empty($type, $country_code, $latitude, $longitude)) {
 
-            // TODO: get dog here
+            if ($app->isValidType($type) && $app->isValidCountryCode($country_code) &&
+                $app->isValidLatitude($latitude) && $app->isValidLongitude($longitude)) {
+
+                $pets = $app->getPets($type, $country_code, $latitude, $longitude);
+
+                return $app->response(200, $pets);
+            }
+
         }
 
-        return $restapi->response(422);
+        return $app->response(422);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('POST', '/pets/dogs', function () use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Publish
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('POST', '/pets', function () use ($app)
 {
-    if ($restapi->isset($_POST, 'user_id', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
-        'contact_name', 'contact_phone', 'contact_place_id') && isset($_FILES['images'])) {
+    if ($app->isset($_POST, 'user_id', 'type', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
+        'contact_name', 'contact_phone', 'contact_place_id') && $app->isset($_FILES, 'images')) {
 
         $user_id = $_POST['user_id'];
+        $type = strtoupper($_POST['type']);
         $breed = $_POST['breed'];
         $gender = strtoupper($_POST['gender']);
         $birth_year = $_POST['birth_year'];
@@ -294,112 +482,106 @@ $router->route('POST', '/pets/dogs', function () use ($app, $restapi)
         $contact_place_id = $_POST['contact_place_id'];
         $images = $app->reArrayImages($_FILES['images']);
 
-        if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+        if (!$app->empty($user_id, $type, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
+            $contact_phone, $contact_place_id)) {
 
-            if (!$restapi->empty($breed, $gender, $birth_year, $birth_month, $description, $contact_name,
-                $contact_phone, $contact_place_id)) {
+            if ($app->isValidType($type) && $app->isValidBreed($breed) && $app->isValidGender($gender) &&
+                $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
+                $app->isValidName($contact_name) && $app->isValidPhone($contact_phone) &&
+                $app->isValidImageUploadCount($images)) {
 
-                if ($app->isValidBreed($breed) && $app->isValidGender($gender) &&
-                    $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
-                    $app->isValidName($contact_name) && $app->isValidPhone($contact_phone) && (sizeof($images) <= 8)) {
+                if ($user = $app->getUser($user_id)) {
 
-                    foreach ($images as $image) {
+                    if ($app->isValidImages($images)) {
 
-                        if (!getimagesize($image['tmp_name']) || ($image['extension'] != 'jpg' &&
-                                $image['extension'] != 'png' && $image['extension'] != 'jpeg' &&
-                                $image['extension'] != 'gif')) {
+                        if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-                            return $restapi->response(415);
-                        }
-                    }
+                            if ($place = $app->processPlaceID($contact_place_id)) {
 
-                    if ($place = $app->processPlaceID($contact_place_id)) {
+                                if ($place['country_code'] == $user['country_code']) {
 
-                        if ($place['country_code'] == $user['country_code']) {
+                                    if ($pet_id = $app->addPet($user_id, $user['country_code'], $type, $breed, $gender,
+                                        $birth_year, $birth_month, $description, $contact_name, $contact_phone,
+                                        $place['latitude'], $place['longitude'], $place['area_level_1'],
+                                        $place['area_level_2'])) {
 
-                            if ($dog_id = $app->addDog($user_id, $user['country_code'], $breed, $gender, $birth_year,
-                                $birth_month, $description, $contact_name, $contact_phone, $place['latitude'],
-                                $place['longitude'], $place['area_level_1'], $place['area_level_2'])) {
+                                        if ($app->uploadPetImages($pet_id, $images)) {
 
-                                if ($app->updateDogImages($dog_id, $images)) {
+                                            return $app->response(201, [
+                                                'id' => $pet_id
+                                            ]);
+                                        }
 
-                                    return $restapi->response(201, [
-                                        'dog_id' => $dog_id
-                                    ]);
+                                        $app->deletePet($pet_id);
+                                    }
+
+                                    return $app->response(500);
                                 }
 
-                                $app->deleteDog($dog_id);
+                                return $app->response(412);
                             }
 
-                            return $restapi->response(500);
+                            return $app->response(503);
                         }
 
-                        return $restapi->response(412);
+                        return $app->response(403);
                     }
 
-                    return $restapi->response(503);
+                    return $app->response(415);
                 }
 
             }
 
-            return $restapi->response(422);
         }
 
-        return $restapi->response(403);
+        return $app->response(422);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('GET', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Get Details
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('GET', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 {
-    if ($dog = $app->getDog($dog_id)) {
+    if ($pet = $app->getPet($pet_id)) {
 
-        $app->updateDogIncrementViews($dog_id);
+        $app->updatePetIncrementViews($pet_id);
 
-        return $restapi->response(200, [
-            'dog_id' => $dog['dog_id'],
-            'user' => [
-                'user_id' => $dog['user']['user_id'],
-                'name' => $dog['user']['name']
-            ],
-            'breed' => $dog['breed'],
-            'gender' => $dog['gender'],
-            'age_month' => $dog['age_month'],
-            'images' => $dog['images'],
-            'description' => $dog['description'],
-            'country_code' => $dog['country_code'],
-            'contact' => [
-                'name' => $dog['contact']['name'],
-                'phone' => $dog['contact']['phone'],
-                'latitude' => $dog['contact']['latitude'],
-                'longitude' => $dog['contact']['longitude'],
-                'area_level_1' => $dog['contact']['area_level_1'],
-                'area_level_2' => $dog['contact']['area_level_2']
-            ],
-            'view_count' => $dog['view_count'] + 1,
-            'day_left' => $dog['day_left'],
-            'thumbnail' => $dog['thumbnail'],
-            'created_at' => $dog['created_at']
-        ]);
+        return $app->response(200, $pet);
     }
 
-    return $restapi->response(404);
+    return $app->response(404);
 });
 
 
 
 
-$router->route('PUT', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Update Details
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('PUT', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 {
     parse_str(file_get_contents('php://input'), $_PUT);
 
-    if ($restapi->isset($_PUT, 'breed', 'gender', 'birth_year', 'birth_month', 'description',
+    if ($app->isset($_PUT, 'type', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
         'contact_name', 'contact_phone')) {
 
+        $type = strtoupper($_PUT['type']);
         $breed = $_PUT['breed'];
         $gender = strtoupper($_PUT['gender']);
         $birth_year = $_PUT['birth_year'];
@@ -408,192 +590,228 @@ $router->route('PUT', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $re
         $contact_name = $_PUT['contact_name'];
         $contact_phone = $_PUT['contact_phone'];
 
-        if ($dog = $app->getDog($dog_id)) {
+        if ($pet = $app->getPet($pet_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
+            if ($app->getBasicToken() == $app->getAccessToken($pet['user_id'])) {
 
-                if (!$restapi->empty($breed, $gender, $birth_year, $birth_month, $description, $contact_name,
+                if (!$app->empty($type, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
                     $contact_phone)) {
 
-                    if ($app->isValidBreed($breed) && $app->isValidGender($gender) &&
+                    if ($app->isValidType($type) && $app->isValidBreed($breed) && $app->isValidGender($gender) &&
                         $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
                         $app->isValidName($contact_name) && $app->isValidPhone($contact_phone)) {
 
-                        if ($app->updateDogDetails($dog_id, $breed, $gender, $birth_year, $birth_month, $description,
-                            $contact_name, $contact_phone)) {
+                        if ($app->updatePetDetails($pet_id, $type, $breed, $gender, $birth_year, $birth_month,
+                            $description, $contact_name, $contact_phone)) {
 
-                            return $restapi->response(204);
+                            return $app->response(204);
                         }
 
-                        return $restapi->response(500);
+                        return $app->response(500);
                     }
 
                 }
 
-                return $restapi->response(422);
+                return $app->response(422);
             }
 
-            return $restapi->response(403);
+            return $app->response(403);
         }
 
-        return $restapi->response(404);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('POST', '/pets/dogs/[i:dog_id]/images', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Upload Images
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('POST', '/pets/[i:pet_id]/images', function ($pet_id) use ($app)
 {
-    if (isset($_FILES['images'])) {
+    if ($app->isset($_FILES, 'images')) {
 
         $images = $app->reArrayImages($_FILES['images']);
 
-        if ($dog = $app->getDog($dog_id)) {
+        if ($pet = $app->getPet($pet_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
+            if ($app->getBasicToken() == $app->getAccessToken($pet['user_id'])) {
 
-                if ((sizeof($images) <= 8)) {
+                if ($app->isValidImageUploadCount($images)) {
 
-                    foreach ($images as $image) {
+                    if ($app->isValidImages($images)) {
 
-                        if (!getimagesize($image['tmp_name']) || ($image['extension'] != 'jpg' &&
-                                $image['extension'] != 'png' && $image['extension'] != 'jpeg' &&
-                                $image['extension'] != 'gif')) {
+                        if ($app->uploadPetImages($pet_id, $images)) {
 
-                            return $restapi->response(415);
+                            return $app->response(204);
                         }
+
+                        return $app->response(500);
                     }
 
-                    if ($app->updateDogImages($dog_id, $images)) {
-
-                        return $restapi->response(204);
-                    }
-
-                    return $restapi->response(500);
+                    return $app->response(415);
                 }
 
-                return $restapi->response(422);
+                return $app->response(422);
             }
 
-            return $restapi->response(403);
+            return $app->response(403);
         }
 
-        return $restapi->response(404);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('PUT', '/pets/dogs/[i:dog_id]/contact_place', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Update Contact Place
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('PUT', '/pets/[i:pet_id]/contact_place', function ($pet_id) use ($app)
 {
     parse_str(file_get_contents('php://input'), $_PUT);
 
-    if ($restapi->isset($_PUT, 'contact_place_id')) {
+    if ($app->isset($_PUT, 'contact_place_id')) {
 
         $contact_place_id = $_PUT['contact_place_id'];
 
-        if ($dog = $app->getDog($dog_id)) {
+        if ($pet = $app->getPet($pet_id)) {
 
-            if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
+            if ($app->getBasicToken() == $app->getAccessToken($pet['user_id'])) {
 
-                if (!$restapi->empty($contact_place_id)) {
+                if (!$app->empty($contact_place_id)) {
 
                     if ($place = $app->processPlaceID($contact_place_id)) {
 
-                        if ($place['country_code'] == $user['country_code']) {
+                        if ($place['country_code'] == $pet['country_code']) {
 
-                            if ($app->updateDogContactPlace($dog_id, $place['latitude'], $place['longitude'],
+                            if ($app->updatePetContactPlace($pet_id, $place['latitude'], $place['longitude'],
                                 $place['area_level_1'], $place['area_level_2'])) {
 
-                                return $restapi->response(204);
+                                return $app->response(204);
                             }
 
-                            return $restapi->response(500);
+                            return $app->response(500);
                         }
 
-                        return $restapi->response(412);
+                        return $app->response(412);
                     }
 
-                    return $restapi->response(503);
+                    return $app->response(503);
                 }
 
-                return $restapi->response(422);
+                return $app->response(422);
             }
 
-            return $restapi->response(403);
+            return $app->response(403);
         }
 
-        return $restapi->response(404);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->route('DELETE', '/pets/dogs/[i:dog_id]', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Deletion
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('DELETE', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 {
-    if ($dog = $app->getDog($dog_id)) {
+    if ($pet = $app->getPet($pet_id)) {
 
-        if ($user = $app->verifyAccessToken($dog['user']['user_id'], $restapi->getBasicToken())) {
+        if ($app->getBasicToken() == $app->getAccessToken($pet['user_id'])) {
 
-            if ($app->deleteDog($dog['dog_id'])) {
+            if ($app->deletePet($pet_id)) {
 
-                return $restapi->response(204);
+                return $app->response(204);
             }
 
-            return $restapi->response(500);
+            return $app->response(500);
         }
 
-        return $restapi->response(403);
+        return $app->response(403);
     }
 
-    return $restapi->response(404);
+    return $app->response(404);
 });
 
 
 
 
-$router->route('POST', '/pets/dogs/[i:dog_id]/report', function ($dog_id) use ($app, $restapi)
+/*......................................................................................................................
+ *
+ * Pet Action Report
+ *
+ * Unit Test: -
+ *......................................................................................................................
+ */
+
+$router->route('POST', '/pets/[i:pet_id]/report', function ($pet_id) use ($app)
 {
-    if ($restapi->isset($_POST, 'user_id')) {
+    if ($app->isset($_POST, 'user_id')) {
 
         $user_id = $_POST['user_id'];
 
-        if ($dog = $app->getDog($dog_id)) {
+        if ($pet = $app->getPet($pet_id)) {
 
-            if ($user = $app->verifyAccessToken($user_id, $restapi->getBasicToken())) {
+            if ($app->empty($user_id)) {
 
-                if ($app->reportDog($user_id, $dog_id)) {
+                if ($user = $app->getUser($user_id)) {
 
-                    return $restapi->response(204);
+                    if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
+
+                        if ($app->reportPet($user_id, $pet_id)) {
+
+                            return $app->response(204);
+                        }
+
+                        return $app->response(500);
+                    }
+
+                    return $app->response(403);
                 }
 
-                return $restapi->response(500);
             }
 
-            return $restapi->response(403);
+            return $app->response(422);
         }
 
-        return $restapi->response(404);
+        return $app->response(404);
     }
 
-    return $restapi->response(400);
+    return $app->response(400);
 });
 
 
 
 
-$router->routeError(function() use ($restapi)
+$router->routeError(function() use ($app)
 {
-    return $restapi->response(500);
+    return $app->response(500);
 });
 
 
