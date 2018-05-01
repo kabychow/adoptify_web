@@ -810,15 +810,21 @@ class Adoptify
 
         if ($response['status'] == 'OK') {
 
-            $size = sizeof($response['result']['address_components']);
+            $address_components = $response['result']['address_components'];
 
-            return [
-                'country_code' => $response['result']['address_components'][$size - 2]['short_name'],
-                'area_level_1' => $response['result']['address_components'][$size - 3]['long_name'],
-                'area_level_2' => $response['result']['address_components'][$size - 4]['long_name'],
-                'latitude' => $response['result']['geometry']['location']['lat'],
-                'longitude' => $response['result']['geometry']['location']['lng']
-            ];
+            for ($i = sizeof($address_components) - 1; $i >= 0 ; $i--) {
+
+                if (in_array('country', $address_components[$i]['types'])) {
+
+                    return [
+                        'country_code' => $address_components[$i]['short_name'],
+                        'area_level_1' => $address_components[$i - 1]['short_name'] ?? null,
+                        'area_level_2' => $address_components[$i - 2]['short_name'] ?? null,
+                        'latitude' => $response['result']['geometry']['location']['lat'],
+                        'longitude' => $response['result']['geometry']['location']['lng']
+                    ];
+                }
+            }
         }
 
         return null;

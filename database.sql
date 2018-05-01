@@ -9,7 +9,6 @@ CREATE TABLE `user` (
     `password` VARCHAR(255) NOT NULL,
     `country_code` ENUM('AU', 'CA', 'CN', 'GB', 'HK', 'JP', 'KR', 'MO', 'MY', 'NZ', 'SG', 'TW', 'US') NOT NULL,
     `fcm_token` VARCHAR(255) NOT NULL,
-    `last_active` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `is_disabled` TINYINT(1) NOT NULL DEFAULT 0
 );
