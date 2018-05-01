@@ -25,8 +25,20 @@ $app = new Adoptify();
 /*......................................................................................................................
  *
  * User Authentication
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /auth
+ * Method: POST
+ * Authorization: -
+ *
+ * Required Parameters { email, password, fcm_token }
+ *
+ * Responses { 200, 400, 401, 404, 422, 500 }
+ *
+ * JSON Data {
+ *   id => integer,
+ *   access_token => string
+ * }
  *......................................................................................................................
  */
 
@@ -76,9 +88,18 @@ $router->route('POST', '/auth', function () use ($app)
 
 /*......................................................................................................................
  *
- * User Register
+ * User Registration
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users
+ * Method: POST
+ * Authorization: -
+ *
+ * Required Parameters { name, gender, email, password, country_code, fcm_token }
+ *
+ * Responses { 201, 400, 409, 422, 500 }
+ *
+ * JSON Data { id, access_token }
  *......................................................................................................................
  */
 
@@ -128,14 +149,23 @@ $router->route('POST', '/users', function () use ($app)
 /*......................................................................................................................
  *
  * User Get Details
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}
+ * Method: GET
+ * Authorization: Basic
+ *
+ * Required Parameters {}
+ *
+ * Responses { 200, 403, 404, 500 }
+ *
+ * JSON Data { id, name, gender, email, country_code, created_at }
  *......................................................................................................................
  */
 
 $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app)
 {
-    if ($user = $app->getUser($user_id)) {
+    if ($user = $app->getUserDetails($user_id)) {
 
         if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -154,14 +184,24 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app)
 /*......................................................................................................................
  *
  * User Get Published Pets
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}/pets
+ * Method: GET
+ * Authorization: Basic
+ *
+ * Required Parameters {}
+ *
+ * Responses { 200, 403, 404, 500 }
+ *
+ * JSON Data { id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
+ *             day_left }
  *......................................................................................................................
  */
 
 $router->route('GET', '/users/[i:user_id]/pets', function ($user_id) use ($app)
 {
-    if ($user = $app->getUser($user_id)) {
+    if ($user = $app->getUserDetails($user_id)) {
 
         if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -182,8 +222,17 @@ $router->route('GET', '/users/[i:user_id]/pets', function ($user_id) use ($app)
 /*......................................................................................................................
  *
  * User Update Details
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}
+ * Method: PUT
+ * Authorization: Basic
+ *
+ * Required Parameters { name, gender, email, country_code }
+ *
+ * Responses { 204, 400, 403, 404, 409, 422, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -198,7 +247,7 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app)
         $email = $_PUT['email'];
         $country_code = strtoupper($_PUT['country_code']);
 
-        if ($user = $app->getUser($user_id)) {
+        if ($user = $app->getUserDetails($user_id)) {
 
             if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -241,8 +290,17 @@ $router->route('PUT', '/users/[i:user_id]', function ($user_id) use ($app)
 /*......................................................................................................................
  *
  * User Update Password
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}/password
+ * Method: PUT
+ * Authorization: Basic
+ *
+ * Required Parameters { current_password, new_password }
+ *
+ * Responses { 200, 400, 401, 403, 404, 422, 500 }
+ *
+ * JSON Data { access_token }
  *......................................................................................................................
  */
 
@@ -255,7 +313,7 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
         $current_password = $_PUT['current_password'];
         $new_password = $_PUT['new_password'];
 
-        if ($user = $app->getUser($user_id)) {
+        if ($user = $app->getUserDetails($user_id)) {
 
             if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -298,8 +356,17 @@ $router->route('PUT', '/users/[i:user_id]/password', function ($user_id) use ($a
 /*......................................................................................................................
  *
  * User Update FCM Token
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}/fcm_token
+ * Method: PUT
+ * Authorization: Basic
+ *
+ * Required Parameters { fcm_token }
+ *
+ * Responses { 200, 400, 403, 404, 422, 500 }
+ *
+ * JSON Data { access_token }
  *......................................................................................................................
  */
 
@@ -311,7 +378,7 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 
         $fcm_token = $_PUT['fcm_token'];
 
-        if ($user = $app->getUser($user_id)) {
+        if ($user = $app->getUserDetails($user_id)) {
 
             if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -345,14 +412,23 @@ $router->route('PUT', '/users/[i:user_id]/fcm_token', function ($user_id) use ($
 /*......................................................................................................................
  *
  * User Disable Account
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /users/{id}
+ * Method: DELETE
+ * Authorization: Basic
+ *
+ * Required Parameters {}
+ *
+ * Responses { 204, 403, 404, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
 $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app)
 {
-    if ($user = $app->getUser($user_id)) {
+    if ($user = $app->getUserDetails($user_id)) {
 
         if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
@@ -375,9 +451,18 @@ $router->route('DELETE', '/users/[i:user_id]', function ($user_id) use ($app)
 
 /*......................................................................................................................
  *
- * User Recover Password
+ * TODO: User Recover Password
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /recover-password
+ * Method: POST
+ * Authorization: -
+ *
+ * Required Parameters { email }
+ *
+ * Responses { 204, 400, 404, 409, 422, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -393,13 +478,12 @@ $router->route('POST', '/recover-password', function() use ($app)
 
                 if ($user_id = $app->getUserId($email)) {
 
-                    $recovery_password = $app->getRecoveryPassword($user_id);
+                    $recovery_password = $app->getUserRecoveryPassword($user_id);
 
                     if (mail($email, 'Adoptify: Password Recovery',
                         'Your new password is ' . $recovery_password)) {
 
                         return $app->response(204);
-                        // TODO: implement mailer and 409
                     }
 
                     return $app->response(500);
@@ -422,26 +506,37 @@ $router->route('POST', '/recover-password', function() use ($app)
 /*......................................................................................................................
  *
  * Pet Get All
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets
+ * Method: GET
+ * Authorization: -
+ *
+ * Required Parameters { type, country_code, latitude, longitude, page }
+ *
+ * Responses { 200, 400, 422, 500 }
+ *
+ * JSON Data [{ id, type, thumbnail, contact_area_level_1, contact_area_level_2, view_count, created_at, day_left }]
  *......................................................................................................................
  */
 
 $router->route('GET', '/pets', function () use ($app)
 {
-    if ($app->isset($_GET, 'type', 'country_code', 'latitude', 'longitude')) {
+    if ($app->isset($_GET, 'type', 'country_code', 'latitude', 'longitude', 'page')) {
 
-        $type = strtoupper($_GET['type']);
+        $type = strtolower($_GET['type']);
         $country_code = strtoupper($_GET['country_code']);
         $latitude = $_GET['latitude'];
         $longitude = $_GET['longitude'];
+        $page = $_GET['page'];
 
-        if (!$app->empty($type, $country_code, $latitude, $longitude)) {
+        if (!$app->empty($type, $country_code, $latitude, $longitude, $page)) {
 
-            if ($app->isValidType($type) && $app->isValidCountryCode($country_code) &&
-                $app->isValidLatitude($latitude) && $app->isValidLongitude($longitude)) {
+            if ($app->isValidPetType($type) && $app->isValidCountryCode($country_code) &&
+                $app->isValidLatitude($latitude) && $app->isValidLongitude($longitude) &&
+                $app->isValidPageNumber($page)) {
 
-                $pets = $app->getPets($type, $country_code, $latitude, $longitude);
+                $pets = $app->getPets($type, $country_code, $latitude, $longitude, $page);
 
                 return $app->response(200, $pets);
             }
@@ -460,8 +555,18 @@ $router->route('GET', '/pets', function () use ($app)
 /*......................................................................................................................
  *
  * Pet Publish
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets
+ * Method: POST
+ * Authorization: Basic
+ *
+ * Required Parameters { user_id, type, breed, gender, birth_year, birth_month, description, contact_name,
+ *                       contact_phone, contact_place_id, images[] }
+ *
+ * Responses { 201, 400, 403, 412, 415, 422, 500, 503 }
+ *
+ * JSON Data { id }
  *......................................................................................................................
  */
 
@@ -471,7 +576,7 @@ $router->route('POST', '/pets', function () use ($app)
         'contact_name', 'contact_phone', 'contact_place_id') && $app->isset($_FILES, 'images')) {
 
         $user_id = $_POST['user_id'];
-        $type = strtoupper($_POST['type']);
+        $type = strtolower($_POST['type']);
         $breed = $_POST['breed'];
         $gender = strtoupper($_POST['gender']);
         $birth_year = $_POST['birth_year'];
@@ -485,12 +590,12 @@ $router->route('POST', '/pets', function () use ($app)
         if (!$app->empty($user_id, $type, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
             $contact_phone, $contact_place_id)) {
 
-            if ($app->isValidType($type) && $app->isValidBreed($breed) && $app->isValidGender($gender) &&
-                $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
-                $app->isValidName($contact_name) && $app->isValidPhone($contact_phone) &&
+            if ($app->isValidPetType($type) && $app->isValidPetBreed($breed) && $app->isValidGender($gender) &&
+                $app->isValidPetDob($birth_year, $birth_month) && $app->isValidPetDescription($description) &&
+                $app->isValidName($contact_name) && $app->isValidPhoneNumber($contact_phone) &&
                 $app->isValidImageUploadCount($images)) {
 
-                if ($user = $app->getUser($user_id)) {
+                if ($user = $app->getUserDetails($user_id)) {
 
                     if ($app->isValidImages($images)) {
 
@@ -546,8 +651,19 @@ $router->route('POST', '/pets', function () use ($app)
 /*......................................................................................................................
  *
  * Pet Get Details
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}
+ * Method: POST
+ * Authorization: -
+ *
+ * Required Parameters {}
+ *
+ * Responses { 200, 404, 500 }
+ *
+ * JSON Data { id, type, user_id, user_name, breed, gender, images, age_month, description, country_code,
+ *             contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
+ *             contact_area_level_2, view_count, created_at, day_left }
  *......................................................................................................................
  */
 
@@ -555,7 +671,7 @@ $router->route('GET', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 {
     if ($pet = $app->getPet($pet_id)) {
 
-        $app->updatePetIncrementViews($pet_id);
+        $app->updatePetIncrementViewCount($pet_id);
 
         return $app->response(200, $pet);
     }
@@ -569,8 +685,17 @@ $router->route('GET', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 /*......................................................................................................................
  *
  * Pet Update Details
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}
+ * Method: PUT
+ * Authorization: Basic
+ *
+ * Required Parameters { type, breed, gender, birth_year, birth_month, description, contact_name, contact_phone }
+ *
+ * Responses { 204, 400, 403, 404, 422, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -581,7 +706,7 @@ $router->route('PUT', '/pets/[i:pet_id]', function ($pet_id) use ($app)
     if ($app->isset($_PUT, 'type', 'breed', 'gender', 'birth_year', 'birth_month', 'description',
         'contact_name', 'contact_phone')) {
 
-        $type = strtoupper($_PUT['type']);
+        $type = strtolower($_PUT['type']);
         $breed = $_PUT['breed'];
         $gender = strtoupper($_PUT['gender']);
         $birth_year = $_PUT['birth_year'];
@@ -597,9 +722,9 @@ $router->route('PUT', '/pets/[i:pet_id]', function ($pet_id) use ($app)
                 if (!$app->empty($type, $breed, $gender, $birth_year, $birth_month, $description, $contact_name,
                     $contact_phone)) {
 
-                    if ($app->isValidType($type) && $app->isValidBreed($breed) && $app->isValidGender($gender) &&
-                        $app->isValidDob($birth_year, $birth_month) && $app->isValidDescription($description) &&
-                        $app->isValidName($contact_name) && $app->isValidPhone($contact_phone)) {
+                    if ($app->isValidPetType($type) && $app->isValidPetBreed($breed) && $app->isValidGender($gender) &&
+                        $app->isValidPetDob($birth_year, $birth_month) && $app->isValidPetDescription($description) &&
+                        $app->isValidName($contact_name) && $app->isValidPhoneNumber($contact_phone)) {
 
                         if ($app->updatePetDetails($pet_id, $type, $breed, $gender, $birth_year, $birth_month,
                             $description, $contact_name, $contact_phone)) {
@@ -629,9 +754,18 @@ $router->route('PUT', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 
 /*......................................................................................................................
  *
- * Pet Upload Images
+ * Pet Re-Upload Images
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}/images
+ * Method: POST
+ * Authorization: Basic
+ *
+ * Required Parameters { images[] }
+ *
+ * Responses { 204, 400, 403, 404, 415, 422, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -678,8 +812,17 @@ $router->route('POST', '/pets/[i:pet_id]/images', function ($pet_id) use ($app)
 /*......................................................................................................................
  *
  * Pet Update Contact Place
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}/contact_place
+ * Method: PUT
+ * Authorization: Basic
+ *
+ * Required Parameters { contact_place_id }
+ *
+ * Responses { 204, 400, 403, 404, 412, 422, 500, 503 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -734,8 +877,17 @@ $router->route('PUT', '/pets/[i:pet_id]/contact_place', function ($pet_id) use (
 /*......................................................................................................................
  *
  * Pet Deletion
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}
+ * Method: DELETE
+ * Authorization: Basic
+ *
+ * Required Parameters {}
+ *
+ * Responses { 204, 403, 404, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -764,9 +916,18 @@ $router->route('DELETE', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 
 /*......................................................................................................................
  *
- * Pet Action Report
+ * Pet Report Inappropriate
+ *......................................................................................................................
  *
- * Unit Test: -
+ * URL: /pets/{id}/report
+ * Method: POST
+ * Authorization: Basic
+ *
+ * Required Parameters { user_id }
+ *
+ * Responses { 204, 400, 403, 404, 422, 500 }
+ *
+ * JSON Data {}
  *......................................................................................................................
  */
 
@@ -780,11 +941,11 @@ $router->route('POST', '/pets/[i:pet_id]/report', function ($pet_id) use ($app)
 
             if ($app->empty($user_id)) {
 
-                if ($user = $app->getUser($user_id)) {
+                if ($user = $app->getUserDetails($user_id)) {
 
                     if ($app->getBasicToken() == $app->getAccessToken($user_id)) {
 
-                        if ($app->reportPet($user_id, $pet_id)) {
+                        if ($app->reportPet($pet_id, $user_id)) {
 
                             return $app->response(204);
                         }

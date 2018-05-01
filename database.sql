@@ -16,7 +16,7 @@ CREATE TABLE `user` (
 
 CREATE TABLE `pet` (
     `id` INT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
-    `type` ENUM('C', 'D'),
+    `type` ENUM('cat', 'dog'),
     `user_id` INT UNSIGNED NOT NULL,
     `breed` VARCHAR(50) NOT NULL,
     `gender` ENUM('M','F') NOT NULL,
