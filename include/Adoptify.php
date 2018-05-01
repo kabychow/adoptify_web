@@ -5,36 +5,36 @@ class Adoptify
     private $con;
 
     // Database
-    private const DB_HOST = '127.0.0.1';
-    private const DB_USER = 'root';
-    private const DB_PASSWORD = '\'';
-    private const DB_NAME = 'adoptify';
+    private $DB_HOST = '127.0.0.1';
+    private $DB_USER = 'root';
+    private $DB_PASSWORD = '\'';
+    private $DB_NAME = 'adoptify';
 
     // Config
-    private const PET_RESULTS_PER_PAGE = 20;
-    private const PET_DAYS_UNTIL_EXPIRE = 150;
-    private const PET_IMAGES_UPLOAD_MAX_COUNT = 8;
-    private const PET_IMAGES_UPLOAD_PATH = 'uploads/pets/';
+    private $PET_RESULTS_PER_PAGE = 20;
+    private $PET_DAYS_UNTIL_EXPIRE = 150;
+    private $PET_IMAGES_UPLOAD_MAX_COUNT = 8;
+    private $PET_IMAGES_UPLOAD_PATH = 'uploads/pets/';
 
     // API Keys
-    private const GOOGLE_PLACES_API_KEY = 'AIzaSyC80DoVueEYQV2-c7Wo0NRtc4fuGDOo-5g';
+    private $GOOGLE_PLACES_API_KEY = 'AIzaSyC80DoVueEYQV2-c7Wo0NRtc4fuGDOo-5g';
 
     // Validation
-    private const USER_NAME_MAX_LENGTH = 50;
-    private const USER_PASSWORD_MIN_LENGTH = 6;
-    private const USER_PASSWORD_MAX_LENGTH = 32;
-    private const USER_PHONE_NUMBER_MAX_LENGTH = 30;
-    private const PET_MINIMUM_BIRTH_YEAR = 1970;
-    private const PET_BREED_MAX_LENGTH = 50;
-    private const PET_DESCRIPTION_MAX_LENGTH = 2000;
+    private $USER_NAME_MAX_LENGTH = 50;
+    private $USER_PASSWORD_MIN_LENGTH = 6;
+    private $USER_PASSWORD_MAX_LENGTH = 32;
+    private $USER_PHONE_NUMBER_MAX_LENGTH = 30;
+    private $PET_MINIMUM_BIRTH_YEAR = 1970;
+    private $PET_BREED_MAX_LENGTH = 50;
+    private $PET_DESCRIPTION_MAX_LENGTH = 2000;
 
     // Currently Supported Countries
-    private const COUNTRIES = [
+    private $COUNTRIES = [
         'AU', 'CA', 'CN', 'GB', 'HK', 'JP', 'KR', 'MO', 'MY', 'NZ', 'SG', 'TW', 'US'
     ];
 
     // Currently Supported Pet Types
-    private const PET_TYPES = [
+    private $PET_TYPES = [
         'cat', 'dog'
     ];
 
@@ -42,7 +42,7 @@ class Adoptify
 
     public function __construct()
     {
-        $this->con = new mysqli(self::DB_HOST, self::DB_USER, self::DB_PASSWORD, self::DB_NAME);
+        $this->con = new mysqli($this->DB_HOST, $this->DB_USER, $this->DB_PASSWORD, $this->DB_NAME);
     }
 
 
@@ -110,7 +110,7 @@ class Adoptify
           ORDER BY created_at DESC
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('si', $upload_path = self::PET_IMAGES_UPLOAD_PATH, $user_id);
+        $stmt->bind_param('si', $upload_path = $this->PET_IMAGES_UPLOAD_PATH, $user_id);
         $stmt->execute();
         $pets = $stmt->get_result();
         $stmt->close();
@@ -451,6 +451,8 @@ class Adoptify
 
     public function getPets($type, $country_code, $latitude, $longitude, $page)
     {
+        $index_start = ($page - 1) * $this->PET_RESULTS_PER_PAGE;
+
         $query = "
           SELECT id, type, IF(image_count > 0, CONCAT(?, id, '-0.jpg'), NULL) AS thumbnail, country_code,
             contact_area_level_1, contact_area_level_2, view_count, created_at,
@@ -461,9 +463,8 @@ class Adoptify
           LIMIT ?, ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('sssddii', $upload_path = self::PET_IMAGES_UPLOAD_PATH, $country_code, $type,
-            $latitude, $longitude, ($page - 1) * self::PET_RESULTS_PER_PAGE,
-            $results_per_page = self::PET_RESULTS_PER_PAGE);
+        $stmt->bind_param('sssddii', $this->PET_IMAGES_UPLOAD_PATH, $country_code, $type, $latitude, $longitude,
+            $index_start, $this->PET_RESULTS_PER_PAGE);
         $stmt->execute();
         $pets = $stmt->get_result();
         $stmt->close();
@@ -520,7 +521,7 @@ class Adoptify
             $pet['images'] = [];
 
             for ($i = 1; $i <= $pet['image_count']; $i++) {
-                array_push($pet['images'], self::PET_IMAGES_UPLOAD_PATH . $pet_id . '-' . $i . '.jpg');
+                array_push($pet['images'], $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-' . $i . '.jpg');
             }
 
             unset($pet['image_count']);
@@ -562,7 +563,7 @@ class Adoptify
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('issssssssddssi', $user_id, $type, $breed, $gender, $dob, $description,
             $country_code, $contact_name, $contact_phone, $contact_latitude, $contact_longitude, $contact_area_level_1,
-            $contact_area_level_2, $pet_days_until_expire = self::PET_DAYS_UNTIL_EXPIRE);
+            $contact_area_level_2, $this->PET_DAYS_UNTIL_EXPIRE);
         $stmt->execute();
         $pet_id = $stmt->insert_id;
         $affected_rows = $stmt->affected_rows;
@@ -590,13 +591,13 @@ class Adoptify
 
     public function uploadPetImages($pet_id, $images)
     {
-        array_map('unlink', glob(__DIR__ . '/../' . self::PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
+        array_map('unlink', glob(__DIR__ . '/../' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
 
         require __DIR__ . '/../include/ImageResizer.php';
         $imageResizer = new ImageResizer();
 
         $name = $pet_id . '-0.jpg';
-        $target = self::PET_IMAGES_UPLOAD_PATH . $name;
+        $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
         if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/../' . $target, 150, 200)) {
             return false;
@@ -605,7 +606,7 @@ class Adoptify
         for ($i = 0; $i < sizeof($images); $i++) {
 
             $name = $pet_id . '-' . ($i + 1) . '.jpg';
-            $target = self::PET_IMAGES_UPLOAD_PATH . $name;
+            $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
             if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/../' . $target, 450, 600)) {
                 return false;
@@ -652,8 +653,8 @@ class Adoptify
           WHERE id = ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('sssssssi', $type, $breed, $gender, $dob, $description, $contact_name,
-            $contact_phone, $pet_id);
+        $stmt->bind_param('sssssssi', $type, $breed, $gender, $dob, $description, $contact_name, $contact_phone,
+            $pet_id);
         $result = $stmt->execute();
         $stmt->close();
 
@@ -803,7 +804,7 @@ class Adoptify
     public function processPlaceID($place_id)
     {
         $url = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=' . $place_id .
-            '&key=' . self::GOOGLE_PLACES_API_KEY;
+            '&key=' . $this->GOOGLE_PLACES_API_KEY;
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $response = json_decode(curl_exec($ch), true);
@@ -817,17 +818,20 @@ class Adoptify
 
                 if (in_array('country', $address_components[$i]['types'])) {
 
-                    return [
-                        'country_code' => $address_components[$i]['short_name'],
-                        'area_level_1' => $address_components[$i - 1]['short_name'] ?? null,
-                        'area_level_2' => $address_components[$i - 2]['short_name'] ?? null,
-                        'latitude' => $response['result']['geometry']['location']['lat'],
-                        'longitude' => $response['result']['geometry']['location']['lng']
-                    ];
-                }
-            }
+                    if (isset($address_components[$i - 1])) {
 
-            // TODO: notify myself about this problem
+                        return [
+                            'country_code' => $address_components[$i]['short_name'],
+                            'area_level_1' => $address_components[$i - 1]['short_name'] ?? null,
+                            'area_level_2' => $address_components[$i - 2]['short_name'] ?? null,
+                            'latitude' => $response['result']['geometry']['location']['lat'],
+                            'longitude' => $response['result']['geometry']['location']['lng']
+                        ];
+                    }
+
+                }
+
+            }
 
         } elseif ($response['status'] == 'OVER_QUERY_LIMIT') {
 
@@ -905,7 +909,7 @@ class Adoptify
 
     public function isValidName($name)
     {
-        return (strlen($name) <= self::USER_NAME_MAX_LENGTH);
+        return (strlen($name) <= $this->USER_NAME_MAX_LENGTH);
     }
 
 
@@ -943,7 +947,8 @@ class Adoptify
 
     public function isValidPassword($password)
     {
-        return (strlen($password) >= self::USER_PASSWORD_MIN_LENGTH && strlen($password) <= self::USER_PASSWORD_MAX_LENGTH);
+        return (strlen($password) >= $this->USER_PASSWORD_MIN_LENGTH &&
+            strlen($password) <= $this->USER_PASSWORD_MAX_LENGTH);
     }
 
 
@@ -962,7 +967,7 @@ class Adoptify
 
     public function isValidCountryCode($country_code)
     {
-        return in_array($country_code, self::COUNTRIES);
+        return in_array($country_code, $this->COUNTRIES);
     }
 
 
@@ -1000,7 +1005,7 @@ class Adoptify
 
     public function isValidPhoneNumber($phone)
     {
-        return (is_numeric($phone) && strlen($phone) <= self::USER_PHONE_NUMBER_MAX_LENGTH);
+        return (is_numeric($phone) && strlen($phone) <= $this->USER_PHONE_NUMBER_MAX_LENGTH);
     }
 
 
@@ -1019,7 +1024,7 @@ class Adoptify
 
     public function isValidPetType($type)
     {
-        return in_array($type, self::PET_TYPES);
+        return in_array($type, $this->PET_TYPES);
     }
 
 
@@ -1038,7 +1043,7 @@ class Adoptify
 
     public function isValidPetBreed($breed)
     {
-        return (strlen($breed) <= self::PET_BREED_MAX_LENGTH);
+        return (strlen($breed) <= $this->PET_BREED_MAX_LENGTH);
     }
 
 
@@ -1057,7 +1062,7 @@ class Adoptify
 
     public function isValidPetDob($year, $month)
     {
-        if (($year >= self::PET_MINIMUM_BIRTH_YEAR && $year <= date('Y')) && ($month >= 1 && $month <= 12)) {
+        if (($year >= $this->PET_MINIMUM_BIRTH_YEAR && $year <= date('Y')) && ($month >= 1 && $month <= 12)) {
 
             return ($year == date('Y')) ? ($month <= date('n')) : true;
         }
@@ -1081,7 +1086,7 @@ class Adoptify
 
     public function isValidPetDescription($description)
     {
-        return (strlen($description) <= self::PET_DESCRIPTION_MAX_LENGTH);
+        return (strlen($description) <= $this->PET_DESCRIPTION_MAX_LENGTH);
     }
 
 
@@ -1139,7 +1144,7 @@ class Adoptify
 
     public function isValidImageUploadCount($images)
     {
-        return ((sizeof($images) > 0) && (sizeof($images) <= self::PET_IMAGES_UPLOAD_MAX_COUNT));
+        return ((sizeof($images) > 0) && (sizeof($images) <= $this->PET_IMAGES_UPLOAD_MAX_COUNT));
     }
 
 

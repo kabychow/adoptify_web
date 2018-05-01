@@ -916,7 +916,7 @@ $router->route('DELETE', '/pets/[i:pet_id]', function ($pet_id) use ($app)
 
 /*......................................................................................................................
  *
- * Pet Report Inappropriate
+ * Pet Report Action
  *......................................................................................................................
  *
  * URL: /pets/{id}/report
@@ -939,7 +939,7 @@ $router->route('POST', '/pets/[i:pet_id]/report', function ($pet_id) use ($app)
 
         if ($pet = $app->getPet($pet_id)) {
 
-            if ($app->empty($user_id)) {
+            if (!$app->empty($user_id)) {
 
                 if ($user = $app->getUserDetails($user_id)) {
 
