@@ -507,7 +507,7 @@ class Adoptify
             DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
           FROM pet AS p
           INNER JOIN user AS u ON p.user_id = u.id
-          WHERE p.id = 1 AND DATEDIFF(p.expiry_date, DATE(NOW())) > 0 AND p.is_deleted = 0
+          WHERE p.id = ? AND DATEDIFF(p.expiry_date, DATE(NOW())) > 0 AND p.is_deleted = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $pet_id);
