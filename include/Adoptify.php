@@ -488,9 +488,9 @@ class Adoptify
      * Required parameters: pet_id
      *
      * Returns array
-     *   { id, type, user_id, user_name, breed, gender, images[], age_month, description, country_code, contact_name,
-     *     contact_phone, contact_latitude, contact_longitude, contact_area_level_1, contact_area_level_2, view_count,
-     *     created_at, day_left }
+     *   { id, type, user_id, user_name, breed, gender, images[], age_year, age_month, description, country_code,
+     *     contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
+     *     contact_area_level_2, view_count, created_at, day_left }
      *
      * Note: Returns null if pet not found
      * .................................................................................................................
@@ -500,13 +500,14 @@ class Adoptify
     {
         $query = "
           SELECT p.id, p.type, p.user_id, u.name AS user_name, p.breed, p.gender, p.image_count,
-            (((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) AS age_month, p.description,
-            p.country_code, p.contact_name, p.contact_phone, p.contact_latitude, p.contact_longitude,
+            FLOOR((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) / 12) AS age_year,
+            ((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) % 12) AS age_month,
+            p.description, p.country_code, p.contact_name, p.contact_phone, p.contact_latitude, p.contact_longitude,
             p.contact_area_level_1, p.contact_area_level_2, p.view_count, p.created_at,
             DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
           FROM pet AS p
           INNER JOIN user AS u ON p.user_id = u.id
-          WHERE p.id = ? AND DATEDIFF(p.expiry_date, DATE(NOW())) > 0 AND p.is_deleted = 0
+          WHERE p.id = 1 AND DATEDIFF(p.expiry_date, DATE(NOW())) > 0 AND p.is_deleted = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $pet_id);
@@ -825,6 +826,12 @@ class Adoptify
                     ];
                 }
             }
+
+            // TODO: notify myself about this problem
+
+        } elseif ($response['status'] == 'OVER_QUERY_LIMIT') {
+
+            // TODO: notify myself about this problem
         }
 
         return null;
