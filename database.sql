@@ -54,3 +54,17 @@ ALTER TABLE `pet` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`country
 
 ALTER TABLE `pet_report` ADD FOREIGN KEY (`pet_id`) REFERENCES `pet`(`pet_id`);
 ALTER TABLE `pet_report` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`user_id`);
+
+INSERT INTO `country`(`country_code`) VALUES ('AU');
+INSERT INTO `country`(`country_code`) VALUES ('CA');
+INSERT INTO `country`(`country_code`) VALUES ('CN');
+INSERT INTO `country`(`country_code`) VALUES ('GB');
+INSERT INTO `country`(`country_code`) VALUES ('HK');
+INSERT INTO `country`(`country_code`) VALUES ('JP');
+INSERT INTO `country`(`country_code`) VALUES ('KR');
+INSERT INTO `country`(`country_code`) VALUES ('MO');
+INSERT INTO `country`(`country_code`) VALUES ('MY');
+INSERT INTO `country`(`country_code`) VALUES ('NZ');
+INSERT INTO `country`(`country_code`) VALUES ('SG');
+INSERT INTO `country`(`country_code`) VALUES ('TW');
+INSERT INTO `country`(`country_code`) VALUES ('US');
