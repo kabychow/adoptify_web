@@ -28,11 +28,6 @@ class Adoptify
     private $PET_BREED_MAX_LENGTH = 50;
     private $PET_DESCRIPTION_MAX_LENGTH = 2000;
 
-    // Currently Supported Countries
-    private $COUNTRIES = [
-        'AU', 'CA', 'CN', 'GB', 'HK', 'JP', 'KR', 'MO', 'MY', 'NZ', 'SG', 'TW', 'US'
-    ];
-
     // Currently Supported Pet Types
     private $PET_TYPES = [
         'cat', 'dog'
@@ -94,7 +89,7 @@ class Adoptify
      * Required parameters: user_id
      *
      * Returns array of array
-     *   [ pet_id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
+     *   [ pet_id, type, thumbnail, country_code, area_level_1, area_level_2, view_count, created_at,
      *     day_left ]
      * .................................................................................................................
      */
@@ -103,7 +98,7 @@ class Adoptify
     {
         $query = "
           SELECT pet_id, type, IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, country_code,
-            contact_area_level_1, contact_area_level_2, view_count, created_at,
+            area_level_1, area_level_2, view_count, created_at,
             DATEDIFF(expiry_date, DATE(NOW())) AS day_left
           FROM pet
           WHERE user_id = ? AND is_deleted = 0
@@ -445,8 +440,8 @@ class Adoptify
      *
      * Returns array of array
      *   [ pet_id, type, user_id, user_name, thumbnail, breed, gender, images[], age_year, age_month, description,
-     *     country_code, contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
-     *     contact_area_level_2, view_count, created_at, day_left ]
+     *     country_code, contact_name, contact_phone, latitude, longitude, area_level_1,
+     *     area_level_2, view_count, created_at, day_left ]
      * .................................................................................................................
      */
 
@@ -459,13 +454,13 @@ class Adoptify
             IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, p.breed, p.gender, p.image_count,
             FLOOR((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) / 12) AS age_year,
             ((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) % 12) AS age_month,
-            p.description, p.country_code, p.contact_name, p.contact_phone, p.contact_latitude, p.contact_longitude,
-            p.contact_area_level_1, p.contact_area_level_2, p.view_count, p.created_at,
+            p.description, p.country_code, p.contact_name, p.contact_phone, p.latitude, p.longitude,
+            p.area_level_1, p.area_level_2, p.view_count, p.created_at,
             DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
           FROM pet AS p
           INNER JOIN user AS u ON p.user_id = u.user_id
           WHERE p.country_code = ? AND p.type = ?
-          ORDER BY ABS(? - p.contact_latitude) + ABS(? - p.contact_longitude)
+          ORDER BY ABS(? - p.latitude) + ABS(? - p.longitude)
           LIMIT ?, ?
         ";
         $stmt = $this->con->prepare($query);
@@ -498,8 +493,8 @@ class Adoptify
      *..................................................................................................................
      *
      * Required parameters: user_id, country_code, type, breed, gender, birth_year, birth_month, description,
-     *                      contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1
-     *                      contact_area_level_2
+     *                      contact_name, contact_phone, latitude, longitude, area_level_1
+     *                      area_level_2
      *
      * Returns integer
      *   pet_id
@@ -509,20 +504,20 @@ class Adoptify
      */
 
     public function addPet($user_id, $country_code, $type, $breed, $gender, $birth_year, $birth_month, $description,
-                           $contact_name, $contact_phone, $contact_latitude, $contact_longitude, $contact_area_level_1,
-                           $contact_area_level_2)
+                           $contact_name, $contact_phone, $latitude, $longitude, $area_level_1,
+                           $area_level_2)
     {
         $dob = $birth_year . '-' . $birth_month . '-' . '01';
 
         $query = "
           INSERT INTO pet (user_id, type, breed, gender, dob, description, country_code, contact_name, contact_phone,
-            contact_latitude, contact_longitude, contact_area_level_1, contact_area_level_2, expiry_date)
+            latitude, longitude, area_level_1, area_level_2, expiry_date)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(DATE(NOW()), INTERVAL ? DAY)) 
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('issssssssddssi', $user_id, $type, $breed, $gender, $dob, $description,
-            $country_code, $contact_name, $contact_phone, $contact_latitude, $contact_longitude, $contact_area_level_1,
-            $contact_area_level_2, $this->PET_DAYS_UNTIL_EXPIRE);
+            $country_code, $contact_name, $contact_phone, $latitude, $longitude, $area_level_1,
+            $area_level_2, $this->PET_DAYS_UNTIL_EXPIRE);
         $stmt->execute();
         $pet_id = $stmt->insert_id;
         $affected_rows = $stmt->affected_rows;
@@ -628,24 +623,24 @@ class Adoptify
      * Update Pet Contact Place
      *..................................................................................................................
      *
-     * Required parameters: pet_id, contact_latitude, contact_longitude, contact_area_level_1, contact_area_level_2
+     * Required parameters: pet_id, latitude, longitude, area_level_1, area_level_2
      *
      * Returns integer
      *   boolean
      * .................................................................................................................
      */
 
-    public function updatePetContactPlace($pet_id, $contact_latitude, $contact_longitude, $contact_area_level_1,
-                                          $contact_area_level_2)
+    public function updatePetContactPlace($pet_id, $latitude, $longitude, $area_level_1,
+                                          $area_level_2)
     {
         $query = "
           UPDATE pet
-          SET contact_latitude = ?, contact_longitude = ?, contact_area_level_1 = ?, contact_area_level_2 = ?
+          SET latitude = ?, longitude = ?, area_level_1 = ?, area_level_2 = ?
           WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('ddssi', $contact_latitude, $contact_longitude, $contact_area_level_1,
-            $contact_area_level_2, $pet_id);
+        $stmt->bind_param('ddssi', $latitude, $longitude, $area_level_1,
+            $area_level_2, $pet_id);
         $result = $stmt->execute();
         $stmt->close();
 
@@ -955,7 +950,13 @@ class Adoptify
 
     public function isValidCountryCode($country_code)
     {
-        return in_array($country_code, $this->COUNTRIES);
+        $stmt = $this->con->prepare('SELECT COUNT(*) AS count FROM country WHERE country_code = ?');
+        $stmt->bind_param('s', $country_code);
+        $stmt->execute();
+        $count = $stmt->get_result()->fetch_assoc()['count'];
+        $stmt->close();
+
+        return ($count > 0);
     }
 
 

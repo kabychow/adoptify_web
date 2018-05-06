@@ -7,7 +7,7 @@ CREATE TABLE `user` (
     `gender` ENUM('M','F') NOT NULL,
     `email` VARCHAR(255) UNIQUE NOT NULL,
     `password` VARCHAR(255) NOT NULL,
-    `country_code` ENUM('AU', 'CA', 'CN', 'GB', 'HK', 'JP', 'KR', 'MO', 'MY', 'NZ', 'SG', 'TW', 'US') NOT NULL,
+    `country_code` CHAR(2) NOT NULL,
     `fcm_token` VARCHAR(255) NOT NULL,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `is_disabled` TINYINT(1) NOT NULL DEFAULT 0
@@ -22,13 +22,13 @@ CREATE TABLE `pet` (
     `image_count` TINYINT NOT NULL DEFAULT 0,
     `dob` DATE NOT NULL,
     `description` VARCHAR(2000) NOT NULL,
-    `country_code` ENUM('AU', 'CA', 'CN', 'GB', 'HK', 'JP', 'KR', 'MO', 'MY', 'NZ', 'SG', 'TW', 'US') NOT NULL,
+    `country_code` CHAR(2) NOT NULL,
     `contact_name` VARCHAR(50) NOT NULL,
     `contact_phone` VARCHAR(30) NOT NULL,
-    `contact_latitude` DECIMAL(22, 20) NOT NULL,
-    `contact_longitude` DECIMAL(23, 20) NOT NULL,
-    `contact_area_level_1` VARCHAR(100) NOT NULL,
-    `contact_area_level_2` VARCHAR(100),
+    `latitude` DECIMAL(22, 20) NOT NULL,
+    `longitude` DECIMAL(23, 20) NOT NULL,
+    `area_level_1` VARCHAR(100) NOT NULL,
+    `area_level_2` VARCHAR(100),
     `view_count` INT UNSIGNED NOT NULL DEFAULT 0,
     `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `expiry_date` DATE NOT NULL,
@@ -43,7 +43,14 @@ CREATE TABLE `pet_report` (
     `is_resolved` TINYINT(1) NOT NULL DEFAULT 0
 );
 
+CREATE TABLE `country` (
+    `country_code` CHAR(2) PRIMARY KEY
+);
+
+ALTER TABLE `user` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`country_code`);
+
 ALTER TABLE `pet` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`user_id`);
+ALTER TABLE `pet` ADD FOREIGN KEY (`country_code`) REFERENCES `country`(`country_code`);
 
 ALTER TABLE `pet_report` ADD FOREIGN KEY (`pet_id`) REFERENCES `pet`(`pet_id`);
 ALTER TABLE `pet_report` ADD FOREIGN KEY (`user_id`) REFERENCES `user`(`user_id`);
