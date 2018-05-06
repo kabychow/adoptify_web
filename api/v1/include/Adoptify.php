@@ -566,7 +566,9 @@ class Adoptify
             return false;
         }
 
-        for ($i = 0; $i < sizeof($images); $i++) {
+        $image_size = sizeof($images);
+
+        for ($i = 0; $i < $image_size; $i++) {
 
             $name = $pet_id . '-' . ($i + 1) . '.jpg';
             $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
@@ -582,7 +584,7 @@ class Adoptify
           WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('ii', sizeof($images), $pet_id);
+        $stmt->bind_param('ii', $image_size, $pet_id);
         $result = $stmt->execute();
         $stmt->close();
 
