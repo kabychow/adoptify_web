@@ -11,7 +11,7 @@ class Adoptify
     private $DB_NAME = 'adoptify';
 
     // Config
-    private $PET_RESULTS_PER_PAGE = 20;
+    private $PET_RESULTS_LIMIT = 1000;
     private $PET_DAYS_UNTIL_EXPIRE = 150;
     private $PET_IMAGES_UPLOAD_MAX_COUNT = 8;
     private $PET_IMAGES_UPLOAD_PATH = 'uploads/pets/';
@@ -65,7 +65,7 @@ class Adoptify
     public function getUserDetails($user_id)
     {
         $query = "
-          SELECT user_id, name, gender, email, country_code
+          SELECT user_id, name, gender, email, country_code, created_at
           FROM user
           WHERE user_id = ? AND is_disabled = 0
         ";
@@ -89,20 +89,26 @@ class Adoptify
      * Required parameters: user_id
      *
      * Returns array of array
-     *   [ pet_id, type, thumbnail, country_code, area_level_1, area_level_2, view_count, created_at,
-     *     day_left ]
+     *   [ pet_id, type, user_id, user_name, thumbnail, breed, gender, images[], age_year, age_month, description,
+     *     country_code, contact_name, contact_phone, latitude, longitude, area_level_1,
+     *     area_level_2, view_count, created_at, day_left ]
      * .................................................................................................................
      */
 
     public function getUserPets($user_id)
     {
         $query = "
-          SELECT pet_id, type, IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, country_code,
-            area_level_1, area_level_2, view_count, created_at,
-            DATEDIFF(expiry_date, DATE(NOW())) AS day_left
-          FROM pet
-          WHERE user_id = ? AND is_deleted = 0
-          ORDER BY created_at DESC
+          SELECT p.pet_id, p.type, p.user_id, u.name AS user_name,
+            IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, p.breed, p.gender, p.image_count,
+            FLOOR((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) / 12) AS age_year,
+            ((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) % 12) AS age_month,
+            p.description, p.country_code, p.contact_name, p.contact_phone, p.latitude, p.longitude,
+            p.area_level_1, p.area_level_2, p.view_count, p.created_at,
+            DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
+          FROM pet AS p
+          INNER JOIN user AS u ON p.user_id = u.user_id
+          WHERE u.user_id = ? AND p.is_deleted = 0
+          ORDER BY p.created_at DESC
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('si', $upload_path = $this->PET_IMAGES_UPLOAD_PATH, $user_id);
@@ -113,6 +119,11 @@ class Adoptify
         $pets_array = [];
 
         while ($pet = $pets->fetch_assoc()) {
+            $pet['images'] = [];
+            for ($i = 1; $i <= $pet['image_count']; $i++) {
+                array_push($pet['images'], $this->PET_IMAGES_UPLOAD_PATH . $pet['pet_id'] . '-' . $i . '.jpg');
+            }
+            unset($pet['image_count']);
             array_push($pets_array, $pet);
         }
 
@@ -436,7 +447,7 @@ class Adoptify
      * Get All Pets With Filter
      *..................................................................................................................
      *
-     * Required parameters: type, country_code, latitude, longitude, page
+     * Required parameters: type, country_code, latitude, longitude
      *
      * Returns array of array
      *   [ pet_id, type, user_id, user_name, thumbnail, breed, gender, images[], age_year, age_month, description,
@@ -445,10 +456,8 @@ class Adoptify
      * .................................................................................................................
      */
 
-    public function getPets($type, $country_code, $latitude, $longitude, $page)
+    public function getPets($type, $country_code, $latitude, $longitude)
     {
-        $index_start = ($page - 1) * $this->PET_RESULTS_PER_PAGE;
-
         $query = "
           SELECT p.pet_id, p.type, p.user_id, u.name AS user_name,
             IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, p.breed, p.gender, p.image_count,
@@ -459,13 +468,13 @@ class Adoptify
             DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
           FROM pet AS p
           INNER JOIN user AS u ON p.user_id = u.user_id
-          WHERE p.country_code = ? AND p.type = ?
+          WHERE p.country_code = ? AND p.type = ? AND p.is_deleted = 0
           ORDER BY ABS(? - p.latitude) + ABS(? - p.longitude)
-          LIMIT ?, ?
+          LIMIT ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('sssddii', $this->PET_IMAGES_UPLOAD_PATH, $country_code, $type, $latitude, $longitude,
-            $index_start, $this->PET_RESULTS_PER_PAGE);
+            $this->PET_RESULTS_LIMIT);
         $stmt->execute();
         $pets = $stmt->get_result();
         $stmt->close();
@@ -545,7 +554,7 @@ class Adoptify
 
     public function uploadPetImages($pet_id, $images)
     {
-        array_map('unlink', glob(__DIR__ . '/../../' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
+        array_map('unlink', glob(__DIR__ . '/../../../' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
 
         require __DIR__ . '/../include/ImageResizer.php';
         $imageResizer = new ImageResizer();
@@ -553,7 +562,7 @@ class Adoptify
         $name = $pet_id . '-0.jpg';
         $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/../../' . $target, 150, 200)) {
+        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/../../../' . $target, 150, 200)) {
             return false;
         }
 
@@ -562,7 +571,7 @@ class Adoptify
             $name = $pet_id . '-' . ($i + 1) . '.jpg';
             $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/../../' . $target, 450, 600)) {
+            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/../../../' . $target, 450, 600)) {
                 return false;
             }
         }
@@ -1163,25 +1172,6 @@ class Adoptify
         }
 
         return true;
-    }
-
-
-
-
-    /*..................................................................................................................
-     *
-     * Validation: Page Number
-     *..................................................................................................................
-     *
-     * Required parameters: page
-     *
-     * Returns boolean
-     * .................................................................................................................
-     */
-
-    public function isValidPageNumber($page)
-    {
-        return (is_numeric($page) && $page > 0);
     }
 
 
