@@ -473,7 +473,7 @@ class Adoptify
           LIMIT ?
         ";
         $stmt = $this->con->prepare($query);
-        $stmt->bind_param('sssddii', $this->PET_IMAGES_UPLOAD_PATH, $country_code, $type, $latitude, $longitude,
+        $stmt->bind_param('sssddi', $this->PET_IMAGES_UPLOAD_PATH, $country_code, $type, $latitude, $longitude,
             $this->PET_RESULTS_LIMIT);
         $stmt->execute();
         $pets = $stmt->get_result();
