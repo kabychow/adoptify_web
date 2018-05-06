@@ -550,7 +550,7 @@ class Adoptify
 
     public function uploadPetImages($pet_id, $images)
     {
-        array_map('unlink', glob(__DIR__ . '/Documents/' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
+        array_map('unlink', glob(__DIR__ . '/../../' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
 
         require __DIR__ . '/../include/ImageResizer.php';
         $imageResizer = new ImageResizer();
@@ -558,7 +558,7 @@ class Adoptify
         $name = $pet_id . '-0.jpg';
         $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/Documents/' . $target, 150, 200)) {
+        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/../../' . $target, 150, 200)) {
             return false;
         }
 
@@ -567,7 +567,7 @@ class Adoptify
             $name = $pet_id . '-' . ($i + 1) . '.jpg';
             $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/Documents/' . $target, 450, 600)) {
+            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/../../' . $target, 450, 600)) {
                 return false;
             }
         }
