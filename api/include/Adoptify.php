@@ -61,7 +61,7 @@ class Adoptify
      * Required parameters: user_id
      *
      * Returns array
-     *   { id, name, gender, email, country_code, created_at }
+     *   { user_id, name, gender, email, country_code, created_at }
      *
      * Note: Returns null if user not found
      * .................................................................................................................
@@ -70,9 +70,9 @@ class Adoptify
     public function getUserDetails($user_id)
     {
         $query = "
-          SELECT id, name, gender, email, country_code, created_at
+          SELECT user_id, name, gender, email, country_code
           FROM user
-          WHERE id = ? AND is_disabled = 0
+          WHERE user_id = ? AND is_disabled = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $user_id);
@@ -94,7 +94,7 @@ class Adoptify
      * Required parameters: user_id
      *
      * Returns array of array
-     *   [ id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
+     *   [ pet_id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
      *     day_left ]
      * .................................................................................................................
      */
@@ -102,7 +102,7 @@ class Adoptify
     public function getUserPets($user_id)
     {
         $query = "
-          SELECT id, type, IF(image_count > 0, CONCAT(?, id, '-0.jpg'), NULL) AS thumbnail, country_code,
+          SELECT pet_id, type, IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, country_code,
             contact_area_level_1, contact_area_level_2, view_count, created_at,
             DATEDIFF(expiry_date, DATE(NOW())) AS day_left
           FROM pet
@@ -179,7 +179,7 @@ class Adoptify
         $query = "
           UPDATE user
           SET name = ?, gender = ?, email = ?, country_code = ?
-          WHERE id = ?
+          WHERE user_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('ssssi', $name, $gender, $email, $country_code, $user_id);
@@ -210,7 +210,7 @@ class Adoptify
         $query = "
           UPDATE user
           SET password = ?
-          WHERE id = ?
+          WHERE user_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('si', $new_password, $user_id);
@@ -241,7 +241,7 @@ class Adoptify
         $query = "
           UPDATE user
           SET fcm_token = ?
-          WHERE id = ?
+          WHERE user_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('si', $fcm_token, $user_id);
@@ -270,7 +270,7 @@ class Adoptify
         $query = "
           UPDATE user
           SET is_disabled = 1
-          WHERE id = ?
+          WHERE user_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $user_id);
@@ -320,7 +320,7 @@ class Adoptify
     public function getUserId($email)
     {
         $query = "
-          SELECT id
+          SELECT user_id
           FROM user
           WHERE email = ?
         ";
@@ -330,7 +330,7 @@ class Adoptify
         $user = $stmt->get_result()->fetch_assoc();
         $stmt->close();
 
-        return $user ? $user['id'] : 0;
+        return $user ? $user['user_id'] : 0;
     }
 
 
@@ -353,9 +353,9 @@ class Adoptify
     public function getAccessToken($user_id)
     {
         $query = "
-          SELECT MD5(CONCAT(id, password, fcm_token)) AS access_token
+          SELECT MD5(CONCAT(user_id, password, fcm_token)) AS access_token
           FROM user
-          WHERE id = ? AND is_disabled = 0
+          WHERE user_id = ? AND is_disabled = 0
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $user_id);
@@ -418,7 +418,7 @@ class Adoptify
         $query = "
           SELECT password
           FROM user
-          WHERE id = ?
+          WHERE user_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $user_id);
@@ -444,8 +444,9 @@ class Adoptify
      * Required parameters: type, country_code, latitude, longitude, page
      *
      * Returns array of array
-     *   [ id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
-     *     day_left ]
+     *   [ pet_id, type, user_id, user_name, thumbnail, breed, gender, images[], age_year, age_month, description,
+     *     country_code, contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
+     *     contact_area_level_2, view_count, created_at, day_left ]
      * .................................................................................................................
      */
 
@@ -454,12 +455,17 @@ class Adoptify
         $index_start = ($page - 1) * $this->PET_RESULTS_PER_PAGE;
 
         $query = "
-          SELECT id, type, IF(image_count > 0, CONCAT(?, id, '-0.jpg'), NULL) AS thumbnail, country_code,
-            contact_area_level_1, contact_area_level_2, view_count, created_at,
-            DATEDIFF(expiry_date, DATE(NOW())) AS day_left
-          FROM pet
-          WHERE country_code = ? AND type = ?
-          ORDER BY ABS(? - contact_latitude) + ABS(? - contact_longitude)
+          SELECT p.pet_id, p.type, p.user_id, u.name AS user_name,
+            IF(image_count > 0, CONCAT(?, pet_id, '-0.jpg'), NULL) AS thumbnail, p.breed, p.gender, p.image_count,
+            FLOOR((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) / 12) AS age_year,
+            ((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) % 12) AS age_month,
+            p.description, p.country_code, p.contact_name, p.contact_phone, p.contact_latitude, p.contact_longitude,
+            p.contact_area_level_1, p.contact_area_level_2, p.view_count, p.created_at,
+            DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
+          FROM pet AS p
+          INNER JOIN user AS u ON p.user_id = u.user_id
+          WHERE p.country_code = ? AND p.type = ?
+          ORDER BY ABS(? - p.contact_latitude) + ABS(? - p.contact_longitude)
           LIMIT ?, ?
         ";
         $stmt = $this->con->prepare($query);
@@ -472,62 +478,15 @@ class Adoptify
         $pets_array = [];
 
         while ($pet = $pets->fetch_assoc()) {
+            $pet['images'] = [];
+            for ($i = 1; $i <= $pet['image_count']; $i++) {
+                array_push($pet['images'], $this->PET_IMAGES_UPLOAD_PATH . $pet['pet_id'] . '-' . $i . '.jpg');
+            }
+            unset($pet['image_count']);
             array_push($pets_array, $pet);
         }
 
         return $pets_array;
-    }
-
-
-
-
-    /*..................................................................................................................
-     *
-     * Get Pet By ID
-     *..................................................................................................................
-     *
-     * Required parameters: pet_id
-     *
-     * Returns array
-     *   { id, type, user_id, user_name, breed, gender, images[], age_year, age_month, description, country_code,
-     *     contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
-     *     contact_area_level_2, view_count, created_at, day_left }
-     *
-     * Note: Returns null if pet not found
-     * .................................................................................................................
-     */
-
-    public function getPet($pet_id)
-    {
-        $query = "
-          SELECT p.id, p.type, p.user_id, u.name AS user_name, p.breed, p.gender, p.image_count,
-            FLOOR((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) / 12) AS age_year,
-            ((((YEAR(NOW()) * 12) + MONTH(NOW())) - ((YEAR(p.dob) * 12) + MONTH(p.dob))) % 12) AS age_month,
-            p.description, p.country_code, p.contact_name, p.contact_phone, p.contact_latitude, p.contact_longitude,
-            p.contact_area_level_1, p.contact_area_level_2, p.view_count, p.created_at,
-            DATEDIFF(p.expiry_date, DATE(NOW())) AS day_left
-          FROM pet AS p
-          INNER JOIN user AS u ON p.user_id = u.id
-          WHERE p.id = ? AND DATEDIFF(p.expiry_date, DATE(NOW())) > 0 AND p.is_deleted = 0
-        ";
-        $stmt = $this->con->prepare($query);
-        $stmt->bind_param('i', $pet_id);
-        $stmt->execute();
-        $pet = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
-
-        if ($pet) {
-
-            $pet['images'] = [];
-
-            for ($i = 1; $i <= $pet['image_count']; $i++) {
-                array_push($pet['images'], $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-' . $i . '.jpg');
-            }
-
-            unset($pet['image_count']);
-        }
-
-        return $pet;
     }
 
 
@@ -591,7 +550,7 @@ class Adoptify
 
     public function uploadPetImages($pet_id, $images)
     {
-        array_map('unlink', glob(__DIR__ . '/../' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
+        array_map('unlink', glob(__DIR__ . '/Documents/' . $this->PET_IMAGES_UPLOAD_PATH . $pet_id . '-*.jpg'));
 
         require __DIR__ . '/../include/ImageResizer.php';
         $imageResizer = new ImageResizer();
@@ -599,7 +558,7 @@ class Adoptify
         $name = $pet_id . '-0.jpg';
         $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/../' . $target, 150, 200)) {
+        if (!$imageResizer->resize($images[0]['tmp_name'], __DIR__ . '/Documents/' . $target, 150, 200)) {
             return false;
         }
 
@@ -608,7 +567,7 @@ class Adoptify
             $name = $pet_id . '-' . ($i + 1) . '.jpg';
             $target = $this->PET_IMAGES_UPLOAD_PATH . $name;
 
-            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/../' . $target, 450, 600)) {
+            if (!$imageResizer->resize($images[$i]['tmp_name'], __DIR__ . '/Documents/' . $target, 450, 600)) {
                 return false;
             }
         }
@@ -616,7 +575,7 @@ class Adoptify
         $query = "
           UPDATE pet
           SET image_count = ?
-          WHERE id = ?
+          WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('ii', sizeof($images), $pet_id);
@@ -650,7 +609,7 @@ class Adoptify
         $query = "
           UPDATE pet
           SET type = ?, breed = ?, gender = ?, dob = ?, description = ?, contact_name = ?, contact_phone = ?
-          WHERE id = ?
+          WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('sssssssi', $type, $breed, $gender, $dob, $description, $contact_name, $contact_phone,
@@ -682,7 +641,7 @@ class Adoptify
         $query = "
           UPDATE pet
           SET contact_latitude = ?, contact_longitude = ?, contact_area_level_1 = ?, contact_area_level_2 = ?
-          WHERE id = ?
+          WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('ddssi', $contact_latitude, $contact_longitude, $contact_area_level_1,
@@ -713,7 +672,7 @@ class Adoptify
         $query = "
           UPDATE pet
           SET is_deleted = 1
-          WHERE id = ?
+          WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $pet_id);
@@ -775,7 +734,7 @@ class Adoptify
         $query = "
           UPDATE pet
           SET view_count = view_count + 1
-          WHERE id = ?
+          WHERE pet_id = ?
         ";
         $stmt = $this->con->prepare($query);
         $stmt->bind_param('i', $pet_id);
@@ -783,6 +742,35 @@ class Adoptify
         $stmt->close();
     }
 
+
+
+
+    /*..................................................................................................................
+     *
+     * Get pet by ID
+     *..................................................................................................................
+     *
+     * Required parameters: pet_id
+     *
+     * Returns (void)
+     * .................................................................................................................
+     */
+
+    public function getPet($pet_id)
+    {
+        $query = "
+          SELECT user_id, country_code
+          FROM pet
+          WHERE pet_id = ?
+        ";
+        $stmt = $this->con->prepare($query);
+        $stmt->bind_param('i', $pet_id);
+        $stmt->execute();
+        $pet = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return $pet;
+    }
 
 
 
@@ -1105,7 +1093,7 @@ class Adoptify
 
     public function isValidLatitude($latitude)
     {
-        return preg_match('/^(\+|-)?(?:90(?:(?:\.0{1,6})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,6})?))$/', $latitude);
+        return preg_match('/^(\+|-)?(?:90(?:(?:\.0{1,6})?)|(?:[0-9]|[1-8][0-9])(?:(?:\.[0-9]{1,20})?))$/', $latitude);
     }
 
 
@@ -1124,7 +1112,7 @@ class Adoptify
 
     public function isValidLongitude($longitude)
     {
-        return preg_match('/^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,6})?))$/',
+        return preg_match('/^(\+|-)?(?:180(?:(?:\.0{1,6})?)|(?:[0-9]|[1-9][0-9]|1[0-7][0-9])(?:(?:\.[0-9]{1,20})?))$/',
             $longitude);
     }
 

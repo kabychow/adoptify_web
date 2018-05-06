@@ -13,10 +13,10 @@
  *......................................................................................................................
  */
 
-require __DIR__ . '/../../include/Router.php';
+require __DIR__ . '/../include/Router.php';
 $router = new Router();
 
-require __DIR__ . '/../../include/Adoptify.php';
+require __DIR__ . '/../include/Adoptify.php';
 $app = new Adoptify();
 
 
@@ -36,7 +36,7 @@ $app = new Adoptify();
  * Responses { 200, 400, 401, 404, 422, 500 }
  *
  * JSON Data {
- *   id => integer,
+ *   user_id => integer,
  *   access_token => string
  * }
  *......................................................................................................................
@@ -61,7 +61,7 @@ $router->route('POST', '/auth', function () use ($app)
                         if ($app->updateUserFcmToken($user_id, $fcm_token)) {
 
                             return $app->response(200, [
-                                'id' => $user_id,
+                                'user_id' => $user_id,
                                 'access_token' => $app->getAccessToken($user_id)
                             ]);
                         }
@@ -99,7 +99,7 @@ $router->route('POST', '/auth', function () use ($app)
  *
  * Responses { 201, 400, 409, 422, 500 }
  *
- * JSON Data { id, access_token }
+ * JSON Data { user_id, access_token }
  *......................................................................................................................
  */
 
@@ -124,7 +124,7 @@ $router->route('POST', '/users', function () use ($app)
                     if ($user_id = $app->addUser($name, $gender, $email, $password, $country_code, $fcm_token)) {
 
                         return $app->response(201, [
-                            'id' => $user_id,
+                            'user_id' => $user_id,
                             'access_token' => $app->getAccessToken($user_id)
                         ]);
                     }
@@ -159,7 +159,7 @@ $router->route('POST', '/users', function () use ($app)
  *
  * Responses { 200, 403, 404, 500 }
  *
- * JSON Data { id, name, gender, email, country_code, created_at }
+ * JSON Data { user_id, name, gender, email, country_code, created_at }
  *......................................................................................................................
  */
 
@@ -194,7 +194,7 @@ $router->route('GET', '/users/[i:user_id]', function ($user_id) use ($app)
  *
  * Responses { 200, 403, 404, 500 }
  *
- * JSON Data { id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
+ * JSON Data { pet_id, type, thumbnail, country_code, contact_area_level_1, contact_area_level_2, view_count, created_at,
  *             day_left }
  *......................................................................................................................
  */
@@ -516,7 +516,9 @@ $router->route('POST', '/recover-password', function() use ($app)
  *
  * Responses { 200, 400, 422, 500 }
  *
- * JSON Data [{ id, type, thumbnail, contact_area_level_1, contact_area_level_2, view_count, created_at, day_left }]
+ * JSON Data [{ pet_id, type, user_id, user_name, thumbnail, breed, gender, images, age_month, age_year, description,
+ *              country_code, contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
+ *             contact_area_level_2, view_count, created_at, day_left }]
  *......................................................................................................................
  */
 
@@ -566,7 +568,7 @@ $router->route('GET', '/pets', function () use ($app)
  *
  * Responses { 201, 400, 403, 412, 415, 422, 500, 503 }
  *
- * JSON Data { id }
+ * JSON Data { pet_id }
  *......................................................................................................................
  */
 
@@ -613,7 +615,7 @@ $router->route('POST', '/pets', function () use ($app)
                                         if ($app->uploadPetImages($pet_id, $images)) {
 
                                             return $app->response(201, [
-                                                'id' => $pet_id
+                                                'pet_id' => $pet_id
                                             ]);
                                         }
 
@@ -643,40 +645,6 @@ $router->route('POST', '/pets', function () use ($app)
     }
 
     return $app->response(400);
-});
-
-
-
-
-/*......................................................................................................................
- *
- * Pet Get Details
- *......................................................................................................................
- *
- * URL: /pets/{id}
- * Method: POST
- * Authorization: -
- *
- * Required Parameters {}
- *
- * Responses { 200, 404, 500 }
- *
- * JSON Data { id, type, user_id, user_name, breed, gender, images, age_month, description, country_code,
- *             contact_name, contact_phone, contact_latitude, contact_longitude, contact_area_level_1,
- *             contact_area_level_2, view_count, created_at, day_left }
- *......................................................................................................................
- */
-
-$router->route('GET', '/pets/[i:pet_id]', function ($pet_id) use ($app)
-{
-    if ($pet = $app->getPet($pet_id)) {
-
-        $app->updatePetIncrementViewCount($pet_id);
-
-        return $app->response(200, $pet);
-    }
-
-    return $app->response(404);
 });
 
 
